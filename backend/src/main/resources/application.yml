@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: lingflow-backend
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: LINGFLOW
+    password: LINGFLOW
+    driver-class-name: org.postgresql.Driver
+  
+  # Flowable配置
+  flowable:
+    database-schema-update: true
+    async-executor-activate: true
+    mail:
+      server:
+        host: smtp.example.com
+        port: 25
+
+server:
+  port: 8080
+
+logging:
+  level:
+    org.flowable: DEBUG
+    com.lingflow: DEBUG
