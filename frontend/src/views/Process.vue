@@ -77,7 +77,7 @@ onMounted(() => {
 const loadProcessDefinitions = async () => {
   try {
     const response = await getProcessDefinitions()
-    processDefinitions.value = response.data
+    processDefinitions.value = response.data.data
   } catch (error) {
     ElMessage.error('加载流程定义失败')
     console.error(error)

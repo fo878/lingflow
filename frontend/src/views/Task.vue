@@ -78,7 +78,7 @@ onMounted(() => {
 const loadTasks = async () => {
   try {
     const response = await getTasks()
-    tasks.value = response.data
+    tasks.value = response.data.data
   } catch (error) {
     ElMessage.error('加载任务失败')
     console.error(error)

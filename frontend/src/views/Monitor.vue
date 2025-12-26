@@ -98,7 +98,7 @@ onMounted(() => {
 const loadRunningInstances = async () => {
   try {
     const response = await getRunningInstances()
-    runningInstances.value = response.data
+    runningInstances.value = response.data.data
   } catch (error) {
     ElMessage.error('加载运行中流程失败')
     console.error(error)
@@ -108,7 +108,7 @@ const loadRunningInstances = async () => {
 const loadCompletedInstances = async () => {
   try {
     const response = await getCompletedInstances()
-    completedInstances.value = response.data
+    completedInstances.value = response.data.data
   } catch (error) {
     ElMessage.error('加载已完结流程失败')
     console.error(error)
