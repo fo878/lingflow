@@ -28,9 +28,9 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { deployProcess } from '@/api/process'
-import '@bpmn-js/dist/assets/diagram-js.css'
-import '@bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
-import '@bpmn-js/dist/assets/bpmn-js.css'
+import 'bpmn-js/dist/assets/diagram-js.css'
+import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
+import 'bpmn-js/dist/assets/bpmn-js.css'
 
 const canvasRef = ref<HTMLElement>()
 const processName = ref('')
@@ -45,7 +45,7 @@ const initialXML = `<?xml version="1.0" encoding="UTF-8"?>
   xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
   id="Definitions_1"
   targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="Process_1" isExecutable="false">
+  <bpmn:process id="Process_1" isExecutable="true">
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">

@@ -4,8 +4,8 @@ spring:
   
   datasource:
     url: jdbc:postgresql://localhost:5432/postgres
-    username: LINGFLOW
-    password: LINGFLOW
+    username: lingflow
+    password: lingflow
     driver-class-name: org.postgresql.Driver
   
   # Flowable配置
