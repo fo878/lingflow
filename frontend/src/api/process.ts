@@ -51,3 +51,7 @@ export const getProcessDefinitionDiagram = (processDefinitionId: string) => {
     responseType: 'arraybuffer'
   })
 }
+
+export const getProcessBpmn = (processInstanceId: string) => {
+  return request.get(`/process/bpmn/${processInstanceId}`)
+}

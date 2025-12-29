@@ -3,7 +3,6 @@ package com.lingflow.service;
 import com.lingflow.dto.*;
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.engine.*;
-import org.flowable.engine.repository.Deployment;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
@@ -168,17 +167,35 @@ public class ProcessService {
      * 生成流程图
      */
     public byte[] generateDiagram(String processInstanceId) {
+        // 先尝试从运行时查询流程实例
         ProcessInstance processInstance = runtimeService.createProcessInstanceQuery()
                 .processInstanceId(processInstanceId)
                 .singleResult();
 
-        if (processInstance == null) {
-            throw new RuntimeException("流程实例不存在");
+        String processDefinitionId;
+        List<String> activeActivityIds = Collections.emptyList();
+
+        if (processInstance != null) {
+            // 运行中的流程实例
+            processDefinitionId = processInstance.getProcessDefinitionId();
+            activeActivityIds = runtimeService.getActiveActivityIds(processInstanceId);
+        } else {
+            // 查询历史流程实例
+            org.flowable.engine.history.HistoricProcessInstance historicInstance = historyService
+                    .createHistoricProcessInstanceQuery()
+                    .processInstanceId(processInstanceId)
+                    .singleResult();
+
+            if (historicInstance == null) {
+                throw new RuntimeException("流程实例不存在");
+            }
+
+            // 已完结的流程实例，不需要高亮活动节点
+            processDefinitionId = historicInstance.getProcessDefinitionId();
         }
 
-        BpmnModel bpmnModel = repositoryService.getBpmnModel(processInstance.getProcessDefinitionId());
+        BpmnModel bpmnModel = repositoryService.getBpmnModel(processDefinitionId);
         ProcessDiagramGenerator diagramGenerator = processEngine.getProcessEngineConfiguration().getProcessDiagramGenerator();
-        List<String> activeActivityIds = runtimeService.getActiveActivityIds(processInstanceId);
 
         InputStream is = diagramGenerator.generateDiagram(bpmnModel, "png", activeActivityIds,
                 Collections.emptyList(), processEngine.getProcessEngineConfiguration().getActivityFontName(),
@@ -223,5 +240,93 @@ public class ProcessService {
         } catch (Exception e) {
             throw new RuntimeException("生成流程图失败", e);
         }
+    }
+
+    /**
+     * 获取流程实例的BPMN XML和节点信息
+     */
+    public Map<String, Object> getProcessBpmnWithNodeInfo(String processInstanceId) {
+        // 查询流程实例
+        ProcessInstance processInstance = runtimeService.createProcessInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .singleResult();
+
+        String processDefinitionId;
+        boolean isFinished = false;
+
+        if (processInstance != null) {
+            processDefinitionId = processInstance.getProcessDefinitionId();
+        } else {
+            // 查询历史流程实例
+            org.flowable.engine.history.HistoricProcessInstance historicInstance = historyService
+                    .createHistoricProcessInstanceQuery()
+                    .processInstanceId(processInstanceId)
+                    .singleResult();
+
+            if (historicInstance == null) {
+                throw new RuntimeException("流程实例不存在");
+            }
+            processDefinitionId = historicInstance.getProcessDefinitionId();
+            isFinished = true;
+        }
+
+        // 获取流程定义XML
+        ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                .processDefinitionId(processDefinitionId)
+                .singleResult();
+
+        InputStream resourceStream = repositoryService.getResourceAsStream(
+                processDefinition.getDeploymentId(),
+                processDefinition.getResourceName());
+
+        String bpmnXml;
+        try {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = resourceStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, len);
+            }
+            bpmnXml = outputStream.toString(StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            throw new RuntimeException("获取流程XML失败", e);
+        }
+
+        // 获取当前活动节点ID（仅运行中流程）
+        List<String> activeActivityIds = Collections.emptyList();
+        if (!isFinished) {
+            activeActivityIds = runtimeService.getActiveActivityIds(processInstanceId);
+        }
+
+        // 获取历史任务信息
+        List<org.flowable.task.api.history.HistoricTaskInstance> historicTasks = historyService
+                .createHistoricTaskInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .orderByHistoricTaskInstanceEndTime()
+                .desc()
+                .list();
+
+        // 构建节点信息映射
+        Map<String, Object> nodeInfoMap = new HashMap<>();
+        for (org.flowable.task.api.history.HistoricTaskInstance task : historicTasks) {
+            String taskId = task.getTaskDefinitionKey();
+            Map<String, Object> nodeInfo = new HashMap<>();
+            nodeInfo.put("taskId", task.getId());
+            nodeInfo.put("taskName", task.getName());
+            nodeInfo.put("assignee", task.getAssignee());
+            nodeInfo.put("startTime", task.getCreateTime());
+            nodeInfo.put("endTime", task.getEndTime());
+            nodeInfo.put("duration", task.getDurationInMillis());
+            nodeInfoMap.put(taskId, nodeInfo);
+        }
+
+        // 构建返回结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("bpmnXml", bpmnXml);
+        result.put("nodeInfo", nodeInfoMap);
+        result.put("activeActivityIds", activeActivityIds);
+        result.put("isFinished", isFinished);
+
+        return result;
     }
 }

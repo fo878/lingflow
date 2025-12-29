@@ -59,22 +59,51 @@
       </el-tab-pane>
     </el-tabs>
 
-    <el-dialog v-model="diagramDialogVisible" title="流程图" width="80%" top="5vh">
-      <div class="diagram-container">
-        <img :src="diagramUrl" alt="流程图" style="width: 100%; height: auto;" />
-      </div>
+    <el-dialog v-model="diagramDialogVisible" title="流程图" width="90%" top="5vh" @close="closeDiagram">
+      <div class="diagram-container" ref="canvasRef"></div>
     </el-dialog>
+
+    <!-- 节点信息悬浮框 -->
+    <div
+      v-if="nodeTooltip.visible"
+      class="node-tooltip"
+      :style="{ left: nodeTooltip.x + 'px', top: nodeTooltip.y + 'px' }"
+    >
+      <div class="tooltip-header">节点信息</div>
+      <div class="tooltip-content">
+        <div v-if="nodeTooltip.data.taskName">
+          <strong>任务名称:</strong> {{ nodeTooltip.data.taskName }}
+        </div>
+        <div v-if="nodeTooltip.data.assignee">
+          <strong>办理人:</strong> {{ nodeTooltip.data.assignee }}
+        </div>
+        <div v-if="nodeTooltip.data.startTime">
+          <strong>开始时间:</strong> {{ formatDate(nodeTooltip.data.startTime) }}
+        </div>
+        <div v-if="nodeTooltip.data.endTime">
+          <strong>结束时间:</strong> {{ formatDate(nodeTooltip.data.endTime) }}
+        </div>
+        <div v-if="nodeTooltip.data.duration">
+          <strong>处理时长:</strong> {{ formatDuration(nodeTooltip.data.duration) }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Refresh, View } from '@element-plus/icons-vue'
 import {
   getRunningInstances,
   getCompletedInstances,
-  getProcessDiagram
+  getProcessBpmn
 } from '@/api/process'
+import NavigatedViewer from 'bpmn-js/lib/NavigatedViewer'
+import 'bpmn-js/dist/assets/diagram-js.css'
+import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
+import 'bpmn-js/dist/assets/bpmn-js.css'
 
 interface ProcessInstance {
   id: string
@@ -88,11 +117,26 @@ const activeTab = ref('running')
 const runningInstances = ref<ProcessInstance[]>([])
 const completedInstances = ref<ProcessInstance[]>([])
 const diagramDialogVisible = ref(false)
-const diagramUrl = ref('')
+const canvasRef = ref<HTMLElement>()
+
+let viewer: any = null
+let nodeInfoMap: Map<string, any> = new Map()
+const nodeTooltip = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  data: {} as any
+})
 
 onMounted(() => {
   loadRunningInstances()
   loadCompletedInstances()
+})
+
+onBeforeUnmount(() => {
+  if (viewer) {
+    viewer.destroy()
+  }
 })
 
 const loadRunningInstances = async () => {
@@ -117,14 +161,104 @@ const loadCompletedInstances = async () => {
 
 const viewDiagram = async (processInstanceId: string) => {
   try {
-    const response = await getProcessDiagram(processInstanceId)
-    const blob = new Blob([response.data], { type: 'image/svg+xml' })
-    diagramUrl.value = URL.createObjectURL(blob)
+    const response = await getProcessBpmn(processInstanceId)
+    const { bpmnXml, nodeInfo, activeActivityIds } = response.data.data
+
+    // 保存节点信息
+    nodeInfoMap = new Map(Object.entries(nodeInfo))
+
     diagramDialogVisible.value = true
+
+    // 等待对话框打开后初始化viewer
+    setTimeout(async () => {
+      if (canvasRef.value) {
+        // 如果之前有viewer实例，先销毁
+        if (viewer) {
+          viewer.destroy()
+        }
+
+        viewer = new NavigatedViewer({
+          container: canvasRef.value
+        })
+
+        try {
+          await viewer.importXML(bpmnXml)
+
+          // 高亮当前活动节点
+          if (activeActivityIds && activeActivityIds.length > 0) {
+            const canvas = viewer.get('canvas')
+            const elementRegistry = viewer.get('elementRegistry')
+            
+            activeActivityIds.forEach((activityId: string) => {
+              const element = elementRegistry.get(activityId)
+              if (element) {
+                canvas.addMarker(element, 'highlight')
+              }
+            })
+          }
+
+          // 自适应缩放
+          const canvas = viewer.get('canvas')
+          canvas.zoom('fit-viewport')
+
+          // 添加节点悬浮事件监听
+          const eventBus = viewer.get('eventBus')
+          eventBus.on('element.hover', (e: any) => {
+            if (e.element && e.element.id && nodeInfoMap.has(e.element.id)) {
+              showNodeTooltip(e, nodeInfoMap.get(e.element.id))
+            }
+          })
+
+          eventBus.on('element.out', () => {
+            hideNodeTooltip()
+          })
+        } catch (error) {
+          ElMessage.error('加载流程图失败')
+          console.error(error)
+        }
+      }
+    }, 100)
   } catch (error) {
     ElMessage.error('获取流程图失败')
     console.error(error)
   }
+}
+
+const closeDiagram = () => {
+  diagramDialogVisible.value = false
+  if (viewer) {
+    viewer.destroy()
+    viewer = null
+  }
+}
+
+const showNodeTooltip = (event: any, data: any) => {
+  nodeTooltip.value = {
+    visible: true,
+    x: event.originalEvent.clientX + 10,
+    y: event.originalEvent.clientY + 10,
+    data: data
+  }
+}
+
+const hideNodeTooltip = () => {
+  nodeTooltip.value.visible = false
+}
+
+const formatDate = (date: string) => {
+  if (!date) return '-'
+  const d = new Date(date)
+  return d.toLocaleString('zh-CN')
+}
+
+const formatDuration = (duration: number) => {
+  if (!duration) return '-'
+  const minutes = Math.floor(duration / 60000)
+  const seconds = Math.floor((duration % 60000) / 1000)
+  if (minutes > 0) {
+    return `${minutes}分${seconds}秒`
+  }
+  return `${seconds}秒`
 }
 </script>
 
@@ -141,9 +275,56 @@ const viewDiagram = async (processInstanceId: string) => {
 
 .diagram-container {
   width: 100%;
-  min-height: 500px;
+  height: 70vh;
   background: #f5f5f5;
   border-radius: 4px;
-  padding: 20px;
+  overflow: hidden;
+}
+
+.node-tooltip {
+  position: fixed;
+  background: white;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 10px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+.tooltip-header {
+  font-weight: bold;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ebeef5;
+  margin-bottom: 8px;
+  color: #303133;
+}
+
+.tooltip-content {
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.6;
+}
+
+.tooltip-content > div {
+  margin-bottom: 4px;
+}
+
+.tooltip-content strong {
+  color: #303133;
+}
+
+/* BPMN高亮样式 */
+:deep(.highlight .djs-visual > :nth-child(1)) {
+  fill: #e6f7ff !important;
+  stroke: #1890ff !important;
+  stroke-width: 2px !important;
+}
+
+:deep(.highlight.djs-shape .djs-visual > :nth-child(1)) {
+  fill: #e6f7ff !important;
+  stroke: #1890ff !important;
+  stroke-width: 2px !important;
 }
 </style>

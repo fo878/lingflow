@@ -138,4 +138,17 @@ public class ProcessController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    /**
+     * 获取流程实例的BPMN XML和节点信息
+     */
+    @GetMapping("/bpmn/{processInstanceId}")
+    public Result<Map<String, Object>> getProcessBpmn(@PathVariable String processInstanceId) {
+        try {
+            Map<String, Object> result = processService.getProcessBpmnWithNodeInfo(processInstanceId);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
 }
