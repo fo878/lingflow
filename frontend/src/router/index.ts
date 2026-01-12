@@ -3,27 +3,28 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/designer'
-  },
-  {
-    path: '/designer',
-    name: 'Designer',
-    component: () => import('@/views/Designer.vue')
+    redirect: '/process'
   },
   {
     path: '/process',
     name: 'Process',
-    component: () => import('@/views/Process.vue')
+    component: () => import('@/views/process/Index.vue')
   },
+  {
+    path: '/process/designer',
+    name: 'Designer',
+    component: () => import('@/views/process/Designer.vue')
+  },
+
   {
     path: '/task',
     name: 'Task',
-    component: () => import('@/views/Task.vue')
+    component: () => import('@/views/task/Task.vue')
   },
   {
     path: '/monitor',
     name: 'Monitor',
-    component: () => import('@/views/Monitor.vue')
+    component: () => import('@/views/monitor/Index.vue')
   }
 ]
 

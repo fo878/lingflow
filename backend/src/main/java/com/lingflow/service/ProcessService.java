@@ -329,4 +329,46 @@ public class ProcessService {
 
         return result;
     }
+
+    /**
+     * 获取流程定义的BPMN XML
+     */
+    public Map<String, Object> getProcessDefinitionXml(String processDefinitionId) {
+        // 查询流程定义
+        ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                .processDefinitionId(processDefinitionId)
+                .singleResult();
+
+        if (processDefinition == null) {
+            throw new RuntimeException("流程定义不存在");
+        }
+
+        // 获取流程定义XML
+        InputStream resourceStream = repositoryService.getResourceAsStream(
+                processDefinition.getDeploymentId(),
+                processDefinition.getResourceName());
+
+        String bpmnXml;
+        try {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = resourceStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, len);
+            }
+            bpmnXml = outputStream.toString(StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            throw new RuntimeException("获取流程XML失败", e);
+        }
+
+        // 构建返回结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("bpmnXml", bpmnXml);
+        result.put("processDefinitionId", processDefinitionId);
+        result.put("name", processDefinition.getName());
+        result.put("key", processDefinition.getKey());
+        result.put("version", processDefinition.getVersion());
+        
+        return result;
+    }
 }

@@ -52,6 +52,10 @@ export const getProcessDefinitionDiagram = (processDefinitionId: string) => {
   })
 }
 
+export const getProcessDefinitionXml = (processDefinitionId: string) => {
+  return request.get(`/process/definition/xml/${processDefinitionId}`)
+}
+
 export const getProcessBpmn = (processInstanceId: string) => {
   return request.get(`/process/bpmn/${processInstanceId}`)
 }

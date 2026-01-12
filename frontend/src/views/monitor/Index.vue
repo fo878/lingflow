@@ -92,8 +92,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
 import { Refresh, View } from '@element-plus/icons-vue'
 import {
   getRunningInstances,
@@ -113,6 +114,8 @@ interface ProcessInstance {
   endTime?: string
 }
 
+const route = useRoute()
+const router = useRouter()
 const activeTab = ref('running')
 const runningInstances = ref<ProcessInstance[]>([])
 const completedInstances = ref<ProcessInstance[]>([])
@@ -128,9 +131,26 @@ const nodeTooltip = ref({
   data: {} as any
 })
 
+// 根据URL哈希值设置默认选项卡
 onMounted(() => {
+  const hash = window.location.hash
+  if (hash.includes('completed')) {
+    activeTab.value = 'completed'
+  } else {
+    activeTab.value = 'running'
+  }
+  
   loadRunningInstances()
   loadCompletedInstances()
+})
+
+// 监听选项卡变化，更新URL哈希
+watch(activeTab, (newTab) => {
+  if (newTab === 'completed') {
+    router.replace({ hash: '#completed' })
+  } else {
+    router.replace({ hash: '#running' })
+  }
 })
 
 onBeforeUnmount(() => {

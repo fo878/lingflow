@@ -140,6 +140,19 @@ public class ProcessController {
     }
 
     /**
+     * 获取流程定义的BPMN XML
+     */
+    @GetMapping("/definition/xml/{processDefinitionId}")
+    public Result<Map<String, Object>> getProcessDefinitionXml(@PathVariable String processDefinitionId) {
+        try {
+            Map<String, Object> result = processService.getProcessDefinitionXml(processDefinitionId);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
      * 获取流程实例的BPMN XML和节点信息
      */
     @GetMapping("/bpmn/{processInstanceId}")
