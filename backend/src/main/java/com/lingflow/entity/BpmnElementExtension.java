@@ -1,0 +1,53 @@
+package com.lingflow.entity;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+/**
+ * BPMN元素扩展属性实体类
+ * 用于存储BPMN元素的自定义扩展属性
+ */
+@Data
+public class BpmnElementExtension {
+    /**
+     * 主键ID
+     */
+    private Long id;
+    
+    /**
+     * 流程定义ID
+     */
+    private String processDefinitionId;
+    
+    /**
+     * BPMN元素ID
+     */
+    private String elementId;
+    
+    /**
+     * BPMN元素类型
+     */
+    private String elementType;
+    
+    /**
+     * 扩展属性JSON
+     */
+    private JsonNode extensionAttributes;
+    
+    /**
+     * 版本号
+     */
+    private Integer version;
+    
+    /**
+     * 创建时间
+     */
+    private LocalDateTime createdTime;
+    
+    /**
+     * 更新时间
+     */
+    private LocalDateTime updatedTime;
+}

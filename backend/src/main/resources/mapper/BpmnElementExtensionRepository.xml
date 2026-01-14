@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingflow.repository.BpmnElementExtensionRepository">
+    <resultMap id="BpmnElementExtensionResultMap" type="com.lingflow.entity.BpmnElementExtension">
+        <id property="id" column="id"/>
+        <result property="processDefinitionId" column="process_definition_id"/>
+        <result property="elementId" column="element_id"/>
+        <result property="elementType" column="element_type"/>
+        <result property="extensionAttributes" column="extension_attributes" 
+                typeHandler="com.lingflow.config.JsonTypeHandler"/>
+        <result property="version" column="version"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="updatedTime" column="updated_time"/>
+    </resultMap>
+    
+    <resultMap id="BpmnElementExtensionHistoryResultMap" type="com.lingflow.entity.BpmnElementExtensionHistory">
+        <id property="id" column="id"/>
+        <result property="extensionId" column="extension_id"/>
+        <result property="processDefinitionId" column="process_definition_id"/>
+        <result property="elementId" column="element_id"/>
+        <result property="elementType" column="element_type"/>
+        <result property="extensionAttributes" column="extension_attributes" 
+                typeHandler="com.lingflow.config.JsonTypeHandler"/>
+        <result property="version" column="version"/>
+        <result property="operationType" column="operation_type"/>
+        <result property="operationTime" column="operation_time"/>
+    </resultMap>
+
+    <insert id="save" parameterType="com.lingflow.entity.BpmnElementExtension">
+        INSERT INTO bpmn_element_extension 
+        (process_definition_id, element_id, element_type, extension_attributes, version, created_time, updated_time)
+        VALUES 
+        (#{processDefinitionId}, #{elementId}, #{elementType}, #{extensionAttributes}, #{version}, #{createdTime}, #{updatedTime})
+    </insert>
+
+    <update id="update" parameterType="com.lingflow.entity.BpmnElementExtension">
+        UPDATE bpmn_element_extension 
+        SET extension_attributes = #{extensionAttributes}, 
+            version = version + 1,
+            updated_time = #{updatedTime}
+        WHERE process_definition_id = #{processDefinitionId} AND element_id = #{elementId}
+    </update>
+
+    <select id="findByProcessAndElement" parameterType="map" resultMap="BpmnElementExtensionResultMap">
+        SELECT * FROM bpmn_element_extension 
+        WHERE process_definition_id = #{processDefinitionId} AND element_id = #{elementId}
+    </select>
+
+    <select id="findByProcessDefinitionId" parameterType="string" resultMap="BpmnElementExtensionResultMap">
+        SELECT * FROM bpmn_element_extension 
+        WHERE process_definition_id = #{processDefinitionId}
+        ORDER BY element_id
+    </select>
+
+    <select id="findByElementType" parameterType="string" resultMap="BpmnElementExtensionResultMap">
+        SELECT * FROM bpmn_element_extension 
+        WHERE element_type = #{elementType}
+        ORDER BY process_definition_id, element_id
+    </select>
+
+    <delete id="deleteByProcessAndElement" parameterType="map">
+        DELETE FROM bpmn_element_extension 
+        WHERE process_definition_id = #{processDefinitionId} AND element_id = #{elementId}
+    </delete>
+
+    <insert id="saveHistory" parameterType="com.lingflow.entity.BpmnElementExtensionHistory">
+        INSERT INTO bpmn_element_extension_history 
+        (extension_id, process_definition_id, element_id, element_type, extension_attributes, version, operation_type, operation_time)
+        VALUES 
+        (#{extensionId}, #{processDefinitionId}, #{elementId}, #{elementType}, #{extensionAttributes}, #{version}, #{operationType}, #{operationTime})
+    </insert>
+
+    <select id="findHistoryByExtensionId" parameterType="long" resultMap="BpmnElementExtensionHistoryResultMap">
+        SELECT * FROM bpmn_element_extension_history 
+        WHERE extension_id = #{extensionId}
+        ORDER BY operation_time DESC
+    </select>
+</mapper>

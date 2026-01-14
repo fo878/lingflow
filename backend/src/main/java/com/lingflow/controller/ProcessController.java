@@ -4,7 +4,11 @@ import com.lingflow.dto.ProcessDefinitionVO;
 import com.lingflow.dto.ProcessInstanceVO;
 import com.lingflow.dto.Result;
 import com.lingflow.dto.TaskVO;
+import com.lingflow.dto.BpmnElementExtensionDTO;
+import com.lingflow.dto.ElementExtensionQueryResult;
+import com.lingflow.entity.BpmnElementExtension;
 import com.lingflow.service.ProcessService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -25,6 +29,9 @@ public class ProcessController {
 
     @Autowired
     private ProcessService processService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     /**
      * 部署流程
@@ -160,6 +167,94 @@ public class ProcessController {
         try {
             Map<String, Object> result = processService.getProcessBpmnWithNodeInfo(processInstanceId);
             return Result.success(result);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    // ==================== BPMN元素扩展属性管理 ====================
+
+    /**
+     * 保存BPMN元素扩展属性
+     */
+    @PostMapping("/extension")
+    public Result<Void> saveElementExtension(@RequestBody Map<String, Object> request) {
+        try {
+            String processDefinitionId = (String) request.get("processDefinitionId");
+            String elementId = (String) request.get("elementId");
+            String elementType = (String) request.get("elementType");
+            com.fasterxml.jackson.databind.JsonNode extensionAttributes = objectMapper.valueToTree(request.get("extensionAttributes"));
+            
+            processService.saveElementExtension(processDefinitionId, elementId, elementType, extensionAttributes);
+            return Result.success();
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取BPMN元素扩展属性
+     */
+    @GetMapping("/extension/{processDefinitionId}/{elementId}")
+    public Result<ElementExtensionQueryResult> getElementExtension(
+            @PathVariable String processDefinitionId,
+            @PathVariable String elementId) {
+        try {
+            ElementExtensionQueryResult result = processService.getElementExtension(processDefinitionId, elementId);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 批量保存BPMN元素扩展属性
+     */
+    @PostMapping("/extensions/batch")
+    public Result<Void> batchSaveElementExtensions(@RequestBody Map<String, Object> request) {
+        try {
+            String processDefinitionId = (String) request.get("processDefinitionId");
+            java.util.List<Map<String, Object>> extensions = (java.util.List<Map<String, Object>>) request.get("extensions");
+            
+            java.util.List<BpmnElementExtensionDTO> extensionDTOs = new java.util.ArrayList<>();
+            for (Map<String, Object> ext : extensions) {
+                BpmnElementExtensionDTO dto = new BpmnElementExtensionDTO();
+                dto.setElementId((String) ext.get("elementId"));
+                dto.setElementType((String) ext.get("elementType"));
+                dto.setExtensionAttributes(objectMapper.valueToTree(ext.get("extensionAttributes")));
+                extensionDTOs.add(dto);
+            }
+            
+            processService.batchSaveElementExtensions(processDefinitionId, extensionDTOs);
+            return Result.success();
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取流程定义的所有扩展属性
+     */
+    @GetMapping("/extensions/{processDefinitionId}")
+    public Result<java.util.List<BpmnElementExtension>> getAllElementExtensions(@PathVariable String processDefinitionId) {
+        try {
+            java.util.List<BpmnElementExtension> extensions = processService.getAllElementExtensions(processDefinitionId);
+            return Result.success(extensions);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 删除BPMN元素扩展属性
+     */
+    @DeleteMapping("/extension/{processDefinitionId}/{elementId}")
+    public Result<Void> deleteElementExtension(
+            @PathVariable String processDefinitionId,
+            @PathVariable String elementId) {
+        try {
+            processService.deleteElementExtension(processDefinitionId, elementId);
+            return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }

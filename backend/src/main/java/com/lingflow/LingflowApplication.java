@@ -1,5 +1,6 @@
 package com.lingflow;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -7,6 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * LingFlow 流程管理系统主应用类
  */
 @SpringBootApplication
+@MapperScan("com.lingflow.repository")
 public class LingflowApplication {
 
     public static void main(String[] args) {

@@ -59,3 +59,58 @@ export const getProcessDefinitionXml = (processDefinitionId: string) => {
 export const getProcessBpmn = (processInstanceId: string) => {
   return request.get(`/process/bpmn/${processInstanceId}`)
 }
+
+// 快照相关接口
+export const createProcessSnapshot = (data: { 
+  processDefinitionKey: string; 
+  snapshotName: string; 
+  description?: string; 
+  creator?: string 
+}) => {
+  return request.post('/snapshot/create', data)
+}
+
+export const getProcessSnapshots = (processDefinitionKey: string) => {
+  return request.get(`/snapshot/list/${processDefinitionKey}`)
+}
+
+export const rollbackToSnapshot = (snapshotId: number) => {
+  return request.post(`/snapshot/rollback/${snapshotId}`)
+}
+
+export const deleteSnapshot = (snapshotId: number) => {
+  return request.delete(`/snapshot/${snapshotId}`)
+}
+
+// BPMN元素扩展属性相关接口
+export const saveElementExtension = (data: {
+  processDefinitionId: string
+  elementId: string
+  elementType: string
+  extensionAttributes: Record<string, any>
+}) => {
+  return request.post('/process/extension', data)
+}
+
+export const getElementExtension = (processDefinitionId: string, elementId: string) => {
+  return request.get(`/process/extension/${processDefinitionId}/${elementId}`)
+}
+
+export const batchSaveElementExtensions = (data: {
+  processDefinitionId: string
+  extensions: Array<{
+    elementId: string
+    elementType: string
+    extensionAttributes: Record<string, any>
+  }>
+}) => {
+  return request.post('/process/extensions/batch', data)
+}
+
+export const getAllElementExtensions = (processDefinitionId: string) => {
+  return request.get(`/process/extensions/${processDefinitionId}`)
+}
+
+export const deleteElementExtension = (processDefinitionId: string, elementId: string) => {
+  return request.delete(`/process/extension/${processDefinitionId}/${elementId}`)
+}

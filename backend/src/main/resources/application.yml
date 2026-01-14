@@ -17,6 +17,15 @@ spring:
         host: smtp.example.com
         port: 25
 
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.lingflow.entity
+  type-handlers-package: com.lingflow.config
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
 server:
   port: 8080
 
@@ -24,3 +33,4 @@ logging:
   level:
     org.flowable: DEBUG
     com.lingflow: DEBUG
+    com.lingflow.repository: DEBUG

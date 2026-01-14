@@ -3,7 +3,7 @@
     <el-container>
       <el-header>
         <div class="header">
-          <h1 class="logo-text">LingFlow <span class="logo-accent">流程管理系统</span></h1>
+          <h1 class="logo-text">LingFlow 流程管理系统</h1>
         </div>
       </el-header>
       <el-container>
@@ -96,17 +96,10 @@ watch(() => route.path, (newPath) => {
   font-weight: 600;
   background: linear-gradient(45deg, #ffffff, #e6e6fa);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 1px;
-  /* 确保中文字体正确显示 */
-  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
-}
-
-.logo-accent {
-  font-weight: 400;
-  opacity: 0.9;
-  /* 确保中文字体正确显示 */
-  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif, #409eff;
 }
 
 .el-header {

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingflow.repository.ProcessSnapshotRepository">
+    <resultMap id="ProcessSnapshotResultMap" type="com.lingflow.entity.ProcessSnapshot">
+        <id property="id" column="id"/>
+        <result property="processDefinitionKey" column="process_definition_key"/>
+        <result property="snapshotName" column="snapshot_name"/>
+        <result property="snapshotVersion" column="snapshot_version"/>
+        <result property="bpmnXml" column="bpmn_xml"/>
+        <result property="description" column="description"/>
+        <result property="creator" column="creator"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <insert id="save" parameterType="com.lingflow.entity.ProcessSnapshot">
+        INSERT INTO process_snapshot 
+        (process_definition_key, snapshot_name, snapshot_version, bpmn_xml, description, creator, created_time)
+        VALUES 
+        (#{processDefinitionKey}, #{snapshotName}, #{snapshotVersion}, #{bpmnXml}, #{description}, #{creator}, #{createdTime})
+    </insert>
+
+    <select id="findByProcessDefinitionKey" parameterType="string" resultMap="ProcessSnapshotResultMap">
+        SELECT * FROM process_snapshot 
+        WHERE process_definition_key = #{processDefinitionKey}
+        ORDER BY created_time DESC
+    </select>
+
+    <select id="findById" parameterType="long" resultMap="ProcessSnapshotResultMap">
+        SELECT * FROM process_snapshot WHERE id = #{id}
+    </select>
+
+    <select id="findLatestByProcessDefinitionKey" parameterType="string" resultMap="ProcessSnapshotResultMap">
+        SELECT * FROM process_snapshot 
+        WHERE process_definition_key = #{processDefinitionKey}
+        ORDER BY created_time DESC
+        LIMIT 1
+    </select>
+
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM process_snapshot WHERE id = #{id}
+    </delete>
+</mapper>
