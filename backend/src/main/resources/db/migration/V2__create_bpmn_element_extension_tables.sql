@@ -1,6 +1,6 @@
 -- BPMN元素扩展属性表
 CREATE TABLE IF NOT EXISTS bpmn_element_extension (
-    id BIGSERIAL PRIMARY KEY,
+    id VARCHAR(36) PRIMARY KEY,
     process_definition_id VARCHAR(255) NOT NULL,
     element_id VARCHAR(255) NOT NULL,
     element_type VARCHAR(100) NOT NULL,
@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS bpmn_element_extension (
 
 -- BPMN元素扩展属性历史表
 CREATE TABLE IF NOT EXISTS bpmn_element_extension_history (
-    id BIGSERIAL PRIMARY KEY,
-    extension_id BIGINT NOT NULL,
+    id VARCHAR(36) PRIMARY KEY,
+    extension_id VARCHAR(36) NOT NULL,
     process_definition_id VARCHAR(255) NOT NULL,
     element_id VARCHAR(255) NOT NULL,
     element_type VARCHAR(100) NOT NULL,
@@ -31,6 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_history_process_element ON bpmn_element_extension
 
 -- 添加表注释
 COMMENT ON TABLE bpmn_element_extension IS 'BPMN元素扩展属性表';
+COMMENT ON COLUMN bpmn_element_extension.id IS '主键ID (UUID)';
 COMMENT ON COLUMN bpmn_element_extension.process_definition_id IS '流程定义ID';
 COMMENT ON COLUMN bpmn_element_extension.element_id IS 'BPMN元素ID';
 COMMENT ON COLUMN bpmn_element_extension.element_type IS 'BPMN元素类型';
@@ -40,7 +41,8 @@ COMMENT ON COLUMN bpmn_element_extension.created_time IS '创建时间';
 COMMENT ON COLUMN bpmn_element_extension.updated_time IS '更新时间';
 
 COMMENT ON TABLE bpmn_element_extension_history IS 'BPMN元素扩展属性历史表';
-COMMENT ON COLUMN bpmn_element_extension_history.extension_id IS '扩展属性ID';
+COMMENT ON COLUMN bpmn_element_extension_history.id IS '主键ID (UUID)';
+COMMENT ON COLUMN bpmn_element_extension_history.extension_id IS '扩展属性ID (UUID)';
 COMMENT ON COLUMN bpmn_element_extension_history.process_definition_id IS '流程定义ID';
 COMMENT ON COLUMN bpmn_element_extension_history.element_id IS 'BPMN元素ID';
 COMMENT ON COLUMN bpmn_element_extension_history.element_type IS 'BPMN元素类型';

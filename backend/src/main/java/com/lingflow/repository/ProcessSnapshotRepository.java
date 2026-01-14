@@ -28,7 +28,7 @@ public interface ProcessSnapshotRepository {
      * @param id 快照ID
      * @return 流程快照对象
      */
-    ProcessSnapshot findById(@Param("id") Long id);
+    ProcessSnapshot findById(@Param("id") String id);
     
     /**
      * 查询流程定义的最新快照
@@ -41,5 +41,5 @@ public interface ProcessSnapshotRepository {
      * 根据ID删除快照
      * @param id 快照ID
      */
-    void deleteById(@Param("id") Long id);
+    void deleteById(@Param("id") String id);
 }

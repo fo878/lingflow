@@ -480,7 +480,7 @@ public class ProcessService {
      * @param snapshotId 快照ID
      */
     @Transactional
-    public void rollbackToSnapshot(Long snapshotId) {
+    public void rollbackToSnapshot(String snapshotId) {
         ProcessSnapshot snapshot = processSnapshotRepository.findById(snapshotId);
         if (snapshot == null) {
             throw new RuntimeException("未找到快照: " + snapshotId);
@@ -495,7 +495,7 @@ public class ProcessService {
      * 删除快照
      * @param snapshotId 快照ID
      */
-    public void deleteSnapshot(Long snapshotId) {
+    public void deleteSnapshot(String snapshotId) {
         processSnapshotRepository.deleteById(snapshotId);
     }
 

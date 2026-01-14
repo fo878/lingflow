@@ -10,3 +10,5 @@
 /httpRequests/
 */target/
 */node_modules/
+*/.vscode/
+*/.idea/

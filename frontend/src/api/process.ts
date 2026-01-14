@@ -74,11 +74,11 @@ export const getProcessSnapshots = (processDefinitionKey: string) => {
   return request.get(`/snapshot/list/${processDefinitionKey}`)
 }
 
-export const rollbackToSnapshot = (snapshotId: number) => {
+export const rollbackToSnapshot = (snapshotId: string) => {
   return request.post(`/snapshot/rollback/${snapshotId}`)
 }
 
-export const deleteSnapshot = (snapshotId: number) => {
+export const deleteSnapshot = (snapshotId: string) => {
   return request.delete(`/snapshot/${snapshotId}`)
 }
 

@@ -1,6 +1,6 @@
 -- 流程定义快照表
 CREATE TABLE IF NOT EXISTS process_snapshot (
-    id BIGSERIAL PRIMARY KEY,
+    id VARCHAR(36) PRIMARY KEY,
     process_definition_key VARCHAR(255) NOT NULL,
     snapshot_name VARCHAR(255) NOT NULL,
     snapshot_version INT NOT NULL DEFAULT 1,
@@ -16,6 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_created_time ON process_snapshot(created_time);
 
 -- 添加表注释
 COMMENT ON TABLE process_snapshot IS '流程定义快照表';
+COMMENT ON COLUMN process_snapshot.id IS '主键ID (UUID)';
 COMMENT ON COLUMN process_snapshot.process_definition_key IS '流程定义KEY';
 COMMENT ON COLUMN process_snapshot.snapshot_name IS '快照名称';
 COMMENT ON COLUMN process_snapshot.snapshot_version IS '快照版本号';

@@ -30,9 +30,9 @@
 
     <insert id="save" parameterType="com.lingflow.entity.BpmnElementExtension">
         INSERT INTO bpmn_element_extension 
-        (process_definition_id, element_id, element_type, extension_attributes, version, created_time, updated_time)
+        (id, process_definition_id, element_id, element_type, extension_attributes, version, created_time, updated_time)
         VALUES 
-        (#{processDefinitionId}, #{elementId}, #{elementType}, #{extensionAttributes}, #{version}, #{createdTime}, #{updatedTime})
+        (#{id}, #{processDefinitionId}, #{elementId}, #{elementType}, #{extensionAttributes}, #{version}, #{createdTime}, #{updatedTime})
     </insert>
 
     <update id="update" parameterType="com.lingflow.entity.BpmnElementExtension">
@@ -67,12 +67,12 @@
 
     <insert id="saveHistory" parameterType="com.lingflow.entity.BpmnElementExtensionHistory">
         INSERT INTO bpmn_element_extension_history 
-        (extension_id, process_definition_id, element_id, element_type, extension_attributes, version, operation_type, operation_time)
+        (id, extension_id, process_definition_id, element_id, element_type, extension_attributes, version, operation_type, operation_time)
         VALUES 
-        (#{extensionId}, #{processDefinitionId}, #{elementId}, #{elementType}, #{extensionAttributes}, #{version}, #{operationType}, #{operationTime})
+        (#{id}, #{extensionId}, #{processDefinitionId}, #{elementId}, #{elementType}, #{extensionAttributes}, #{version}, #{operationType}, #{operationTime})
     </insert>
 
-    <select id="findHistoryByExtensionId" parameterType="long" resultMap="BpmnElementExtensionHistoryResultMap">
+    <select id="findHistoryByExtensionId" parameterType="string" resultMap="BpmnElementExtensionHistoryResultMap">
         SELECT * FROM bpmn_element_extension_history 
         WHERE extension_id = #{extensionId}
         ORDER BY operation_time DESC

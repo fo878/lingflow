@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * BPMN元素扩展属性实体类
@@ -12,9 +13,16 @@ import java.time.LocalDateTime;
 @Data
 public class BpmnElementExtension {
     /**
-     * 主键ID
+     * 主键ID (UUID)
      */
-    private Long id;
+    private String id;
+    
+    /**
+     * 自动生成UUID并在构造函数中设置
+     */
+    public BpmnElementExtension() {
+        this.id = UUID.randomUUID().toString();
+    }
     
     /**
      * 流程定义ID

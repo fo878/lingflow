@@ -15,7 +15,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/snapshot")
-@CrossOrigin(origins = "*")
 public class SnapshotController {
 
     @Autowired
@@ -62,7 +61,7 @@ public class SnapshotController {
      * @return 操作结果
      */
     @PostMapping("/rollback/{snapshotId}")
-    public Result<Void> rollbackToSnapshot(@PathVariable("snapshotId") Long snapshotId) {
+    public Result<Void> rollbackToSnapshot(@PathVariable("snapshotId") String snapshotId) {
         try {
             processService.rollbackToSnapshot(snapshotId);
             return Result.success();
@@ -77,7 +76,7 @@ public class SnapshotController {
      * @return 操作结果
      */
     @DeleteMapping("/{snapshotId}")
-    public Result<Void> deleteSnapshot(@PathVariable("snapshotId") Long snapshotId) {
+    public Result<Void> deleteSnapshot(@PathVariable("snapshotId") String snapshotId) {
         try {
             processService.deleteSnapshot(snapshotId);
             return Result.success();

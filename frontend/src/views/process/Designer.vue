@@ -672,14 +672,14 @@ const createSnapshot = async () => {
     return;
   }
   
-  if (!processName.value) {
-    ElMessage.warning('请先设置流程名称');
+  if (!processKey.value) {
+    ElMessage.warning('请先设置流程Key');
     return;
   }
 
   try {
     await createProcessSnapshot({
-      processDefinitionKey: processName.value,
+      processDefinitionKey: processKey.value,
       snapshotName: snapshotForm.value.snapshotName,
       description: snapshotForm.value.description,
       creator: snapshotForm.value.creator
@@ -689,7 +689,7 @@ const createSnapshot = async () => {
     createSnapshotDialogVisible.value = false;
     
     // 刷新快照列表
-    const response = await getProcessSnapshots(processName.value);
+    const response = await getProcessSnapshots(processKey.value);
     snapshots.value = response.data.data;
   } catch (error: any) {
     ElMessage.error(`创建快照失败: ${error.response?.data?.message || error.message}`);
@@ -698,7 +698,7 @@ const createSnapshot = async () => {
 }
 
 // 回滚到指定快照
-const rollbackToSnapshot = async (snapshotId: number) => {
+const rollbackToSnapshot = async (snapshotId: string) => {
   try {
     await ElMessageBox.confirm(
       '确认要回滚到此快照吗？此操作不可逆！',
@@ -729,7 +729,7 @@ const rollbackToSnapshot = async (snapshotId: number) => {
 }
 
 // 删除快照
-const deleteSnapshot = async (snapshotId: number) => {
+const deleteSnapshot = async (snapshotId: string) => {
   try {
     await ElMessageBox.confirm(
       '确认要删除此快照吗？此操作不可逆！',
