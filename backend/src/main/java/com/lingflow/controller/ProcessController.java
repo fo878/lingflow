@@ -24,7 +24,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/process")
-@CrossOrigin(origins = "*")
 public class ProcessController {
 
     @Autowired
@@ -65,7 +64,7 @@ public class ProcessController {
      * 删除流程定义
      */
     @DeleteMapping("/definition/{deploymentId}")
-    public Result<Void> deleteProcessDefinition(@PathVariable String deploymentId) {
+    public Result<Void> deleteProcessDefinition(@PathVariable("deploymentId") String deploymentId) {
         try {
             processService.deleteProcessDefinition(deploymentId);
             return Result.success();
@@ -79,7 +78,7 @@ public class ProcessController {
      */
     @PostMapping("/start/{processKey}")
     public Result<ProcessInstanceVO> startProcess(
-            @PathVariable String processKey,
+            @PathVariable("processKey") String processKey,
             @RequestBody(required = false) Map<String, String> variables) {
         try {
             String businessKey = variables != null ? variables.get("businessKey") : null;
@@ -120,7 +119,7 @@ public class ProcessController {
      * 获取流程图
      */
     @GetMapping("/diagram/{processInstanceId}")
-    public ResponseEntity<byte[]> getProcessDiagram(@PathVariable String processInstanceId) {
+    public ResponseEntity<byte[]> getProcessDiagram(@PathVariable("processInstanceId") String processInstanceId) {
         try {
             byte[] diagram = processService.generateDiagram(processInstanceId);
             HttpHeaders headers = new HttpHeaders();
@@ -135,7 +134,7 @@ public class ProcessController {
      * 获取流程定义图
      */
     @GetMapping("/definition/diagram/{processDefinitionId}")
-    public ResponseEntity<byte[]> getProcessDefinitionDiagram(@PathVariable String processDefinitionId) {
+    public ResponseEntity<byte[]> getProcessDefinitionDiagram(@PathVariable("processDefinitionId") String processDefinitionId) {
         try {
             byte[] diagram = processService.generateProcessDefinitionDiagram(processDefinitionId);
             HttpHeaders headers = new HttpHeaders();
@@ -150,7 +149,7 @@ public class ProcessController {
      * 获取流程定义的BPMN XML
      */
     @GetMapping("/definition/xml/{processDefinitionId}")
-    public Result<Map<String, Object>> getProcessDefinitionXml(@PathVariable String processDefinitionId) {
+    public Result<Map<String, Object>> getProcessDefinitionXml(@PathVariable("processDefinitionId") String processDefinitionId) {
         try {
             Map<String, Object> result = processService.getProcessDefinitionXml(processDefinitionId);
             return Result.success(result);
@@ -163,7 +162,7 @@ public class ProcessController {
      * 获取流程实例的BPMN XML和节点信息
      */
     @GetMapping("/bpmn/{processInstanceId}")
-    public Result<Map<String, Object>> getProcessBpmn(@PathVariable String processInstanceId) {
+    public Result<Map<String, Object>> getProcessBpmn(@PathVariable("processInstanceId") String processInstanceId) {
         try {
             Map<String, Object> result = processService.getProcessBpmnWithNodeInfo(processInstanceId);
             return Result.success(result);
@@ -197,8 +196,8 @@ public class ProcessController {
      */
     @GetMapping("/extension/{processDefinitionId}/{elementId}")
     public Result<ElementExtensionQueryResult> getElementExtension(
-            @PathVariable String processDefinitionId,
-            @PathVariable String elementId) {
+            @PathVariable("processDefinitionId") String processDefinitionId,
+            @PathVariable("elementId") String elementId) {
         try {
             ElementExtensionQueryResult result = processService.getElementExtension(processDefinitionId, elementId);
             return Result.success(result);
@@ -236,7 +235,7 @@ public class ProcessController {
      * 获取流程定义的所有扩展属性
      */
     @GetMapping("/extensions/{processDefinitionId}")
-    public Result<java.util.List<BpmnElementExtension>> getAllElementExtensions(@PathVariable String processDefinitionId) {
+    public Result<java.util.List<BpmnElementExtension>> getAllElementExtensions(@PathVariable("processDefinitionId") String processDefinitionId) {
         try {
             java.util.List<BpmnElementExtension> extensions = processService.getAllElementExtensions(processDefinitionId);
             return Result.success(extensions);
@@ -250,8 +249,8 @@ public class ProcessController {
      */
     @DeleteMapping("/extension/{processDefinitionId}/{elementId}")
     public Result<Void> deleteElementExtension(
-            @PathVariable String processDefinitionId,
-            @PathVariable String elementId) {
+            @PathVariable("processDefinitionId") String processDefinitionId,
+            @PathVariable("elementId") String elementId) {
         try {
             processService.deleteElementExtension(processDefinitionId, elementId);
             return Result.success();

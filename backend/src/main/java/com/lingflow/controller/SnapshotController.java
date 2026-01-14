@@ -47,7 +47,7 @@ public class SnapshotController {
      * @return 快照列表
      */
     @GetMapping("/list/{processDefinitionKey}")
-    public Result<List<ProcessSnapshot>> getSnapshots(@PathVariable String processDefinitionKey) {
+    public Result<List<ProcessSnapshot>> getSnapshots(@PathVariable("processDefinitionKey") String processDefinitionKey) {
         try {
             List<ProcessSnapshot> snapshots = processService.getProcessSnapshots(processDefinitionKey);
             return Result.success(snapshots);
@@ -62,7 +62,7 @@ public class SnapshotController {
      * @return 操作结果
      */
     @PostMapping("/rollback/{snapshotId}")
-    public Result<Void> rollbackToSnapshot(@PathVariable Long snapshotId) {
+    public Result<Void> rollbackToSnapshot(@PathVariable("snapshotId") Long snapshotId) {
         try {
             processService.rollbackToSnapshot(snapshotId);
             return Result.success();
@@ -77,7 +77,7 @@ public class SnapshotController {
      * @return 操作结果
      */
     @DeleteMapping("/{snapshotId}")
-    public Result<Void> deleteSnapshot(@PathVariable Long snapshotId) {
+    public Result<Void> deleteSnapshot(@PathVariable("snapshotId") Long snapshotId) {
         try {
             processService.deleteSnapshot(snapshotId);
             return Result.success();

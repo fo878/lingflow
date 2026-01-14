@@ -31,6 +31,11 @@ server:
 
 logging:
   level:
-    org.flowable: DEBUG
+    #root: INFO
+    org.springframework.web: DEBUG
+    #org.flowable: DEBUG
     com.lingflow: DEBUG
     com.lingflow.repository: DEBUG
+    org.springframework.boot.autoconfigure.logging: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

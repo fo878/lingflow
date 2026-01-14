@@ -134,6 +134,7 @@ import {
 import { EditPen, Delete, VideoPlay, Plus, Refresh, Search, Document } from '@element-plus/icons-vue'
 
 interface ProcessDefinition {
+  id: string
   key: string
   name: string
   version: number
@@ -182,7 +183,8 @@ const createNewProcess = () => {
 }
 
 const handleEdit = (row: ProcessDefinition) => {
-  router.push(`/process/designer?id=${row.deploymentId}&key=${row.key}&name=${encodeURIComponent(row.name)}`)
+  // 传递processDefinitionId而不是deploymentId
+  router.push(`/process/designer?id=${row.id}&key=${row.key}&name=${encodeURIComponent(row.name)}`)
 }
 
 const handleStart = (row: ProcessDefinition) => {

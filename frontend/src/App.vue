@@ -26,10 +26,6 @@
                 <el-icon><List /></el-icon>
                 <span>流程列表</span>
               </el-menu-item>
-              <el-menu-item index="/process/designer">
-                <el-icon><Edit /></el-icon>
-                <span>流程设计器</span>
-              </el-menu-item>
             </el-sub-menu>
             <el-sub-menu index="monitor">
               <template #title>
@@ -63,7 +59,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElSubMenu } from 'element-plus'
-import { Document, Monitor, List, Edit, VideoPlay, Finished } from '@element-plus/icons-vue'
+import { Document, Monitor, List, VideoPlay, Finished } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const activeMenu = ref(route.path)

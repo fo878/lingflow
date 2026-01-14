@@ -58,8 +58,36 @@
       
       <!-- 右侧属性面板 -->
       <div class="right-panel">
-        <h3>属性面板</h3>
-        <el-form v-if="selectedElement" label-position="top">
+        <h3>{{ selectedElement ? '元素属性' : '流程属性' }}</h3>
+        
+        <!-- 流程模板属性 -->
+        <el-form v-if="!selectedElement" label-position="top">
+          <el-form-item label="流程名称">
+            <el-input v-model="processName" placeholder="请输入流程名称"></el-input>
+          </el-form-item>
+          <el-form-item label="流程Key">
+            <el-input :value="processKey" readonly></el-input>
+          </el-form-item>
+          <el-form-item label="流程版本">
+            <el-input :value="processVersion" readonly></el-input>
+          </el-form-item>
+          <el-form-item label="流程描述">
+            <el-input
+              v-model="processDescription"
+              type="textarea"
+              :rows="4"
+              placeholder="请输入流程描述"
+            ></el-input>
+          </el-form-item>
+          <el-divider></el-divider>
+          <div class="process-info">
+            <el-icon><InfoFilled /></el-icon>
+            <span>在画布上选择元素可查看和编辑元素属性</span>
+          </div>
+        </el-form>
+        
+        <!-- 元素属性 -->
+        <el-form v-else label-position="top">
           <el-form-item label="元素类型">
             <el-input v-model="selectedElement.type" readonly></el-input>
           </el-form-item>
@@ -156,9 +184,6 @@
             ></el-input>
           </el-form-item>
         </el-form>
-        <div v-else class="no-selection">
-          请选择一个元素
-        </div>
       </div>
     </div>
     
@@ -225,7 +250,7 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
-import { ZoomIn, ZoomOut, Download, Upload, Refresh, Document, Plus } from '@element-plus/icons-vue'
+import { ZoomIn, ZoomOut, Download, Upload, Refresh, Document, Plus, InfoFilled } from '@element-plus/icons-vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { 
   deployProcess, 
@@ -246,6 +271,9 @@ import 'bpmn-js/dist/assets/bpmn-js.css'
 
 const canvasRef = ref<HTMLElement>()
 const processName = ref('')
+const processKey = ref('')
+const processVersion = ref('1.0')
+const processDescription = ref('')
 const processDefinitionId = ref<string>('')
 let modeler: any = null
 
@@ -255,6 +283,7 @@ const route = useRoute()
 const queryParams = route.query
 if (queryParams.name) {
   processName.value = decodeURIComponent(queryParams.name as string)
+  processKey.value = processName.value.replace(/\s+/g, '_').toLowerCase()
 }
 
 // 如果是编辑模式且提供了流程定义ID，可以加载对应的流程图
@@ -275,6 +304,20 @@ const selectedElement = ref<any>(null)
 const loadExistingProcess = async (processDefId: string) => {
   try {
     console.log('开始加载流程定义:', processDefId)
+    
+    // 检查processDefId是否为空
+    if (!processDefId || processDefId.trim() === '') {
+      ElMessage.warning('流程定义ID为空，将创建新流程')
+      if (modeler) {
+        await modeler.importXML(initialXML)
+        const canvas = modeler.get('canvas')
+        canvas.zoom('fit-viewport')
+        const currentViewbox = canvas.viewbox()
+        zoomLevel.value = currentViewbox.scale
+      }
+      return
+    }
+    
     const response = await getProcessDefinitionXml(processDefId)
     
     // 检查响应数据是否存在
@@ -300,9 +343,16 @@ const loadExistingProcess = async (processDefId: string) => {
       // 保存流程定义ID
       processDefinitionId.value = processDefId
       
-      // 设置流程名称
+      // 设置流程属性
       if (response.data.data.name) {
         processName.value = response.data.data.name
+        processKey.value = response.data.data.key || processName.value.replace(/\s+/g, '_').toLowerCase()
+      }
+      if (response.data.data.version) {
+        processVersion.value = response.data.data.version
+      }
+      if (response.data.data.description) {
+        processDescription.value = response.data.data.description
       }
       
       const canvas = modeler.get('canvas')
@@ -314,13 +364,24 @@ const loadExistingProcess = async (processDefId: string) => {
       
       // 加载扩展属性
       await loadElementExtensions(processDefId)
+      
+      ElMessage.success('流程加载成功')
     }
   } catch (error: any) {
     console.error('加载现有流程失败:', error)
     const errorMsg = error.response?.data?.message || error.message || '加载流程失败'
-    ElMessage.error(`加载现有流程失败: ${errorMsg}`)
     
-    // 如果加载失败，仍使用初始XML
+    // 显示详细的错误提示
+    if (error.message && error.message.includes('流程定义不存在')) {
+      ElMessage.error(`流程不存在或已被删除，将创建新流程`)
+    } else if (error.response && error.response.status === 404) {
+      ElMessage.error(`流程未找到 (ID: ${processDefId})，将创建新流程`)
+    } else {
+      ElMessage.error(`加载流程失败: ${errorMsg}`)
+    }
+    
+    // 如果加载失败，仍使用初始XML并清空流程定义ID
+    processDefinitionId.value = ''
     if (modeler) {
       await modeler.importXML(initialXML)
       const canvas = modeler.get('canvas')
@@ -774,45 +835,114 @@ const handleSnapshotCommand = async (command: string) => {
   display: flex;
   flex: 1;
   overflow: hidden;
+  gap: 0;
 }
 
 .canvas-wrapper {
   flex: 2;
   display: flex;
   flex-direction: column;
-  background-image: radial-gradient(circle, #cbd5e0 1px, transparent 1px);
-  background-size: 20px 20px;
+  background: #f5f7fa;
+  position: relative;
+  overflow: hidden;
 }
 
-.right-panel {
-  width: 350px;
-  background: white;
-  padding: 20px;
-  border-left: 1px solid #e4e7ed;
-  overflow-y: auto;
-  animation: slideInRight 0.3s ease;
+.canvas-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle, #d1d5db 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .canvas-container {
   flex: 1;
   background: white;
-  border-radius: 8px;
-  margin: 10px;
+  margin: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  position: relative;
+  z-index: 1;
+}
+
+.canvas-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.right-panel {
+  width: 380px;
+  background: white;
+  padding: 24px;
+  border-left: 2px solid #e5e7eb;
+  overflow-y: auto;
+  animation: slideInRight 0.3s ease;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
+  z-index: 2;
 }
 
 .right-panel h3 {
   margin-top: 0;
-  margin-bottom: 20px;
-  color: #303133;
+  margin-bottom: 24px;
+  color: #1f2937;
+  font-size: 18px;
+  font-weight: 600;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
-.no-selection {
-  text-align: center;
-  color: #909399;
-  padding: 40px 0;
-  font-style: italic;
+.process-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.process-info .el-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* 滚动条美化 */
+.right-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.right-panel::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.right-panel::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.right-panel::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 /* 快照对话框样式 */

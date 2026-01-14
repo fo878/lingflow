@@ -38,7 +38,7 @@ public class TaskController {
      */
     @PostMapping("/complete/{taskId}")
     public Result<Void> completeTask(
-            @PathVariable String taskId,
+            @PathVariable("taskId") String taskId,
             @RequestBody(required = false) Map<String, Object> variables) {
         try {
             processService.completeTask(taskId, variables);
@@ -52,7 +52,7 @@ public class TaskController {
      * 获取任务表单（简化版本，暂时返回空）
      */
     @GetMapping("/form/{taskId}")
-    public Result<Map<String, Object>> getTaskForm(@PathVariable String taskId) {
+    public Result<Map<String, Object>> getTaskForm(@PathVariable("taskId") String taskId) {
         try {
             // 简化版本，返回空表单
             return Result.success(Map.of("taskId", taskId));
