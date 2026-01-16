@@ -290,7 +290,7 @@ public class ProcessService {
      */
     public Map<String, Object> getProcessDefinitionXml(String processDefinitionId) {
         logger.info("查询流程定义XML, processDefinitionId: {}", processDefinitionId);
-        
+
         // 查询流程定义
         ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
                 .processDefinitionId(processDefinitionId)
@@ -323,6 +323,9 @@ public class ProcessService {
             throw new RuntimeException("获取流程XML失败", e);
         }
 
+        // 检查流程是否暂停
+        boolean isSuspended = repositoryService.isProcessDefinitionSuspended(processDefinitionId);
+
         // 构建返回结果
         Map<String, Object> result = new HashMap<>();
         result.put("bpmnXml", bpmnXml);
@@ -330,7 +333,9 @@ public class ProcessService {
         result.put("name", processDefinition.getName());
         result.put("key", processDefinition.getKey());
         result.put("version", processDefinition.getVersion());
-        
+        result.put("suspended", isSuspended);
+        result.put("description", processDefinition.getDescription());
+
         return result;
     }
 

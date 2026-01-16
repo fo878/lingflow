@@ -3,6 +3,10 @@
     <!-- 头部导航栏 -->
     <div class="designer-header">
       <div class="header-left">
+        <el-button @click="goBackToList" class="back-btn" title="返回流程列表">
+          <el-icon><ArrowLeft /></el-icon>
+          返回列表
+        </el-button>
         <h2 class="logo">📄 流程设计器</h2>
         <el-input
           v-model="processName"
@@ -36,7 +40,7 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          
+
           <el-button @click="exportXML" plain>
             <el-icon><Download /></el-icon>
             导出
@@ -48,25 +52,64 @@
         </div>
       </div>
     </div>
-    
+
     <!-- 主体内容区域 -->
     <div class="main-content">
       <!-- 中间画布区域 -->
       <div class="canvas-wrapper">
         <div class="canvas-container" ref="canvasRef"></div>
       </div>
-      
+
       <!-- 右侧属性面板 -->
       <div class="right-panel">
-        <h3>{{ selectedElement ? '元素属性' : '流程属性' }}</h3>
-        
+        <div class="panel-header">
+          <h3>{{ selectedElement ? '元素属性' : '流程属性' }}</h3>
+          <!-- 流程状态标签 -->
+          <el-tag v-if="!selectedElement && processStatus !== 'draft'"
+                  :type="processStatus === 'active' ? 'success' : 'warning'"
+                  size="small">
+            {{ processStatus === 'active' ? '发布态' : '停用态' }}
+          </el-tag>
+          <el-tag v-else-if="!selectedElement" type="info" size="small">设计态</el-tag>
+        </div>
+
+        <!-- 保存按钮（仅在选中元素时显示） -->
+        <div v-if="selectedElement && canEditProperties" class="save-button-wrapper">
+          <el-button type="primary" @click="saveElementProperties" size="small" :loading="isSaving">
+            <el-icon><Document /></el-icon>
+            保存属性
+          </el-button>
+        </div>
+
+        <!-- 属性不可编辑提示 -->
+        <div v-if="selectedElement && !canEditProperties" class="edit-warning">
+          <el-icon><InfoFilled /></el-icon>
+          <span>{{ getEditDisabledReason() }}</span>
+        </div>
+
         <!-- 流程模板属性 -->
         <el-form v-if="!selectedElement" label-position="top">
           <el-form-item label="流程名称">
             <el-input v-model="processName" placeholder="请输入流程名称"></el-input>
           </el-form-item>
           <el-form-item label="流程Key">
-            <el-input :value="processKey" readonly></el-input>
+            <el-input v-model="processKey" placeholder="请输入流程Key"></el-input>
+          </el-form-item>
+          <el-form-item label="所属分类">
+            <el-cascader
+              v-model="selectedCategoryId"
+              :options="categoryTreeOptions"
+              :props="{
+                value: 'id',
+                label: 'name',
+                children: 'children',
+                checkStrictly: true,
+                emitPath: false
+              }"
+              placeholder="请选择分类（可选）"
+              clearable
+              filterable
+            />
           </el-form-item>
           <el-form-item label="流程版本">
             <el-input :value="processVersion" readonly></el-input>
@@ -85,7 +128,7 @@
             <span>在画布上选择元素可查看和编辑元素属性</span>
           </div>
         </el-form>
-        
+
         <!-- 元素属性 -->
         <el-form v-else label-position="top">
           <el-form-item label="元素类型">
@@ -95,85 +138,156 @@
             <el-input v-model="selectedElement.id" readonly></el-input>
           </el-form-item>
           <el-form-item label="元素名称">
-            <el-input v-model="selectedElement.name" @input="updateElementName"></el-input>
+            <el-input
+              v-model="selectedElement.name"
+              @input="updateElementName"
+              :disabled="!isPropertyEditable('name')"
+            ></el-input>
           </el-form-item>
-          
+
           <!-- 根据元素类型显示不同的属性配置 -->
           <!-- 用户任务属性 -->
           <template v-if="isUserTask(selectedElement.type)">
             <el-form-item label="执行人">
-              <el-input v-model="selectedElement.extensionAttributes.assignee" placeholder="请输入执行人"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.assignee"
+                placeholder="请输入执行人"
+                :disabled="!isPropertyEditable('assignee')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="候选用户">
-              <el-input v-model="selectedElement.extensionAttributes.candidateUsers" placeholder="请输入候选用户，多个用逗号分隔"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.candidateUsers"
+                placeholder="请输入候选用户，多个用逗号分隔"
+                :disabled="!isPropertyEditable('candidateUsers')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="候选组">
-              <el-input v-model="selectedElement.extensionAttributes.candidateGroups" placeholder="请输入候选组，多个用逗号分隔"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.candidateGroups"
+                placeholder="请输入候选组，多个用逗号分隔"
+                :disabled="!isPropertyEditable('candidateGroups')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="表单Key">
-              <el-input v-model="selectedElement.extensionAttributes.formKey" placeholder="请输入表单Key"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.formKey"
+                placeholder="请输入表单Key"
+                :disabled="!isPropertyEditable('formKey')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="截止日期">
-              <el-input v-model="selectedElement.extensionAttributes.dueDate" placeholder="请输入截止日期表达式"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.dueDate"
+                placeholder="请输入截止日期表达式"
+                :disabled="!isPropertyEditable('dueDate')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="优先级">
-              <el-input v-model="selectedElement.extensionAttributes.priority" placeholder="请输入优先级"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.priority"
+                placeholder="请输入优先级"
+                :disabled="!isPropertyEditable('priority')"
+              ></el-input>
             </el-form-item>
           </template>
-          
+
           <!-- 服务任务属性 -->
           <template v-else-if="isServiceTask(selectedElement.type)">
             <el-form-item label="实现类">
-              <el-input v-model="selectedElement.extensionAttributes.implementation" placeholder="请输入实现类"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.implementation"
+                placeholder="请输入实现类"
+                :disabled="!isPropertyEditable('implementation')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="表达式">
-              <el-input v-model="selectedElement.extensionAttributes.expression" placeholder="请输入表达式"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.expression"
+                placeholder="请输入表达式"
+                :disabled="!isPropertyEditable('expression')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="代理表达式">
-              <el-input v-model="selectedElement.extensionAttributes.delegateExpression" placeholder="请输入代理表达式"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.delegateExpression"
+                placeholder="请输入代理表达式"
+                :disabled="!isPropertyEditable('delegateExpression')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="结果变量名">
-              <el-input v-model="selectedElement.extensionAttributes.resultVariableName" placeholder="请输入结果变量名"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.resultVariableName"
+                placeholder="请输入结果变量名"
+                :disabled="!isPropertyEditable('resultVariableName')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="任务类型">
-              <el-select v-model="selectedElement.extensionAttributes.type" placeholder="请选择任务类型">
+              <el-select
+                v-model="selectedElement.extensionAttributes.type"
+                placeholder="请选择任务类型"
+                :disabled="!isPropertyEditable('type')"
+              >
                 <el-option label="HTTP" value="http"></el-option>
                 <el-option label="邮件" value="mail"></el-option>
                 <el-option label="其他" value="other"></el-option>
               </el-select>
             </el-form-item>
             <el-form-item label="异步执行">
-              <el-switch v-model="selectedElement.extensionAttributes.async" />
+              <el-switch
+                v-model="selectedElement.extensionAttributes.async"
+                :disabled="!isPropertyEditable('async')"
+              />
             </el-form-item>
           </template>
-          
+
           <!-- 网关属性 -->
           <template v-else-if="isGateway(selectedElement.type)">
             <el-form-item label="网关类型">
-              <el-select v-model="selectedElement.extensionAttributes.gatewayType" placeholder="请选择网关类型">
+              <el-select
+                v-model="selectedElement.extensionAttributes.gatewayType"
+                placeholder="请选择网关类型"
+                :disabled="!isPropertyEditable('gatewayType')"
+              >
                 <el-option label="排他网关" value="exclusive"></el-option>
                 <el-option label="并行网关" value="parallel"></el-option>
                 <el-option label="包容网关" value="inclusive"></el-option>
               </el-select>
             </el-form-item>
             <el-form-item label="默认路径">
-              <el-input v-model="selectedElement.extensionAttributes.default" placeholder="请输入默认路径ID"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.default"
+                placeholder="请输入默认路径ID"
+                :disabled="!isPropertyEditable('default')"
+              ></el-input>
             </el-form-item>
           </template>
-          
+
           <!-- 事件属性 -->
           <template v-else-if="isEvent(selectedElement.type)">
             <el-form-item label="消息引用">
-              <el-input v-model="selectedElement.extensionAttributes.messageRef" placeholder="请输入消息引用"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.messageRef"
+                placeholder="请输入消息引用"
+                :disabled="!isPropertyEditable('messageRef')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="定时器配置">
-              <el-input v-model="selectedElement.extensionAttributes.timerEventDefinition" placeholder="请输入定时器配置"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.timerEventDefinition"
+                placeholder="请输入定时器配置"
+                :disabled="!isPropertyEditable('timerEventDefinition')"
+              ></el-input>
             </el-form-item>
             <el-form-item label="信号引用">
-              <el-input v-model="selectedElement.extensionAttributes.signalRef" placeholder="请输入信号引用"></el-input>
+              <el-input
+                v-model="selectedElement.extensionAttributes.signalRef"
+                placeholder="请输入信号引用"
+                :disabled="!isPropertyEditable('signalRef')"
+              ></el-input>
             </el-form-item>
           </template>
-          
+
           <!-- 通用属性 -->
           <el-form-item label="描述">
             <el-input
@@ -186,7 +300,7 @@
         </el-form>
       </div>
     </div>
-    
+
     <!-- 快照对话框 -->
     <el-dialog v-model="snapshotDialogVisible" title="流程快照管理" width="80%" top="5vh">
       <div class="snapshot-toolbar">
@@ -195,10 +309,10 @@
           创建快照
         </el-button>
       </div>
-      
-      <el-table 
-        :data="snapshots" 
-        stripe 
+
+      <el-table
+        :data="snapshots"
+        stripe
         style="width: 100%"
         row-key="id"
       >
@@ -219,7 +333,7 @@
         </el-table-column>
       </el-table>
     </el-dialog>
-    
+
     <!-- 创建快照对话框 -->
     <el-dialog v-model="createSnapshotDialogVisible" title="创建快照" width="500px">
       <el-form :model="snapshotForm" label-width="100px">
@@ -227,9 +341,9 @@
           <el-input v-model="snapshotForm.snapshotName" placeholder="请输入快照名称"></el-input>
         </el-form-item>
         <el-form-item label="描述">
-          <el-input 
-            v-model="snapshotForm.description" 
-            type="textarea" 
+          <el-input
+            v-model="snapshotForm.description"
+            type="textarea"
             :rows="3"
             placeholder="请输入快照描述（可选）"
           ></el-input>
@@ -247,17 +361,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, watch, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useRoute } from 'vue-router'
-import { ZoomIn, ZoomOut, Download, Upload, Refresh, Document, Plus, InfoFilled } from '@element-plus/icons-vue'
+import { ZoomIn, ZoomOut, Download, Upload, Refresh, Document, Plus, InfoFilled, ArrowLeft } from '@element-plus/icons-vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
-import { 
-  deployProcess, 
+import {
+  deployProcess,
   getProcessDefinitions,
-  getProcessDefinitionXml, 
-  createProcessSnapshot, 
-  getProcessSnapshots, 
+  getProcessDefinitionXml,
+  createProcessSnapshot,
+  getProcessSnapshots,
   rollbackToSnapshot as apiRollbackToSnapshot,
   deleteSnapshot as apiDeleteSnapshot,
   saveElementExtension,
@@ -265,6 +379,11 @@ import {
   batchSaveElementExtensions,
   getAllElementExtensions
 } from '@/api/process'
+import {
+  getCategoryTree,
+  setProcessCategory
+} from '@/api/processCategory'
+import type { ProcessCategoryTree } from '@/api/processCategory'
 import 'bpmn-js/dist/assets/diagram-js.css'
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
 import 'bpmn-js/dist/assets/bpmn-js.css'
@@ -275,9 +394,24 @@ const processKey = ref('')
 const processVersion = ref('1.0')
 const processDescription = ref('')
 const processDefinitionId = ref<string>('')
+const processSuspended = ref<boolean>(false)
 let modeler: any = null
 
+// 流程状态：'draft'（设计态） | 'active'（发布态） | 'suspended'（停用态）
+const processStatus = ref<'draft' | 'active' | 'suspended'>('draft')
+
 const route = useRoute()
+const router = useRouter()
+
+// 分类相关
+const categoryTree = ref<ProcessCategoryTree[]>([])
+const selectedCategoryId = ref<string>()
+const categoryTreeOptions = computed(() => categoryTree.value)
+
+// TODO: 从上下文或配置获取当前租户信息
+const currentTenantId = ref('default_tenant')
+const currentAppId = ref('')
+const currentContextId = ref('')
 
 // 获取URL参数
 const queryParams = route.query
@@ -300,11 +434,54 @@ const zoomLevel = ref(1)
 // 选中的元素
 const selectedElement = ref<any>(null)
 
+// 保存中状态
+const isSaving = ref(false)
+
+// 计算是否可以编辑属性
+// 设计态: 可以编辑所有属性
+// 发布态: 只能编辑不影响流程运行的属性（描述、表单Key、截止日期、优先级等）
+// 停用态: 不能编辑任何属性
+const canEditProperties = computed(() => {
+  if (processStatus.value === 'draft') {
+    return true
+  }
+  if (processStatus.value === 'suspended') {
+    return false
+  }
+  // 发布态：可以编辑部分属性
+  return true
+})
+
+// 判断某个属性是否可编辑
+const isPropertyEditable = (propertyName: string) => {
+  if (processStatus.value === 'draft') {
+    return true
+  }
+  if (processStatus.value === 'suspended') {
+    return false
+  }
+  // 发布态不可编辑的属性（影响流程运行的属性）
+  const readonlyProperties = [
+    'id', 'type', 'name', 'assignee', 'candidateUsers', 'candidateGroups',
+    'implementation', 'expression', 'delegateExpression', 'gatewayType', 'default',
+    'messageRef', 'timerEventDefinition', 'signalRef', 'async', 'type'
+  ]
+  return !readonlyProperties.includes(propertyName)
+}
+
+// 获取不可编辑的原因
+const getEditDisabledReason = () => {
+  if (processStatus.value === 'suspended') {
+    return '流程已停用，不能修改任何属性'
+  }
+  return '当前属性不可编辑'
+}
+
 // 加载现有流程定义
 const loadExistingProcess = async (processDefId: string) => {
   try {
     console.log('开始加载流程定义:', processDefId)
-    
+
     // 检查processDefId是否为空
     if (!processDefId || processDefId.trim() === '') {
       ElMessage.warning('流程定义ID为空，将创建新流程')
@@ -315,34 +492,35 @@ const loadExistingProcess = async (processDefId: string) => {
         const currentViewbox = canvas.viewbox()
         zoomLevel.value = currentViewbox.scale
       }
+      processStatus.value = 'draft'
       return
     }
-    
+
     const response = await getProcessDefinitionXml(processDefId)
-    
+
     // 检查响应数据是否存在
     if (!response || !response.data || !response.data.data) {
       console.error('响应数据为空:', response)
       throw new Error('获取流程定义失败：服务器返回数据为空')
     }
-    
+
     // 检查是否有错误
     if (response.data.data.error) {
       console.error('流程定义错误:', response.data.data.error)
       throw new Error(response.data.data.error)
     }
-    
+
     const xml = response.data.data.bpmnXml
     if (!xml) {
       throw new Error('流程XML为空')
     }
-    
+
     if (modeler) {
       await modeler.importXML(xml)
-      
+
       // 保存流程定义ID
       processDefinitionId.value = processDefId
-      
+
       // 设置流程属性
       if (response.data.data.name) {
         processName.value = response.data.data.name
@@ -354,23 +532,31 @@ const loadExistingProcess = async (processDefId: string) => {
       if (response.data.data.description) {
         processDescription.value = response.data.data.description
       }
-      
+
+      // 设置流程状态
+      processSuspended.value = response.data.data.suspended || false
+      if (processSuspended.value) {
+        processStatus.value = 'suspended'
+      } else {
+        processStatus.value = 'active'
+      }
+
       const canvas = modeler.get('canvas')
       canvas.zoom('fit-viewport')
-      
+
       // 更新缩放级别
       const currentViewbox = canvas.viewbox()
       zoomLevel.value = currentViewbox.scale
-      
+
       // 加载扩展属性
       await loadElementExtensions(processDefId)
-      
+
       ElMessage.success('流程加载成功')
     }
   } catch (error: any) {
     console.error('加载现有流程失败:', error)
     const errorMsg = error.response?.data?.message || error.message || '加载流程失败'
-    
+
     // 显示详细的错误提示
     if (error.message && error.message.includes('流程定义不存在')) {
       ElMessage.error(`流程不存在或已被删除，将创建新流程`)
@@ -379,9 +565,10 @@ const loadExistingProcess = async (processDefId: string) => {
     } else {
       ElMessage.error(`加载流程失败: ${errorMsg}`)
     }
-    
+
     // 如果加载失败，仍使用初始XML并清空流程定义ID
     processDefinitionId.value = ''
+    processStatus.value = 'draft'
     if (modeler) {
       await modeler.importXML(initialXML)
       const canvas = modeler.get('canvas')
@@ -397,7 +584,7 @@ const loadElementExtensions = async (processDefinitionId: string) => {
   try {
     const response = await getAllElementExtensions(processDefinitionId)
     const extensions = response.data.data
-    
+
     // 将扩展属性映射到元素
     extensions.forEach((ext: any) => {
       // 在模型中查找对应元素
@@ -409,6 +596,20 @@ const loadElementExtensions = async (processDefinitionId: string) => {
     })
   } catch (error) {
     console.error('Failed to load element extensions:', error)
+  }
+}
+
+// 加载分类树
+const loadCategoryTree = async () => {
+  try {
+    const response = await getCategoryTree({
+      tenantId: currentTenantId.value,
+      appId: currentAppId.value,
+      contextId: currentContextId.value
+    })
+    categoryTree.value = response.data.data || []
+  } catch (error) {
+    console.error('加载分类树失败:', error)
   }
 }
 
@@ -438,6 +639,9 @@ const snapshotForm = ref({
 })
 
 onMounted(async () => {
+  // 加载分类树
+  await loadCategoryTree()
+
   if (canvasRef.value) {
     modeler = new BpmnModeler({
       container: canvasRef.value,
@@ -449,12 +653,12 @@ onMounted(async () => {
     // 监听元素选择事件
     const eventBus = modeler.get('eventBus')
     const selection = modeler.get('selection')
-    
+
     eventBus.on('selection.changed', async (e: any) => {
       const newSelection = e.newSelection
       if (newSelection && newSelection.length > 0) {
         const element = newSelection[0]
-        
+
         // 如果有 processDefinitionId，从后端加载该元素的扩展属性
         let extensionAttributes = {}
         if (processDefinitionId.value) {
@@ -470,7 +674,7 @@ onMounted(async () => {
           // 使用元素本地存储的扩展属性
           extensionAttributes = element.businessObject.extensionAttributes || {}
         }
-        
+
         selectedElement.value = {
           id: element.id,
           type: element.type,
@@ -487,7 +691,7 @@ onMounted(async () => {
       await modeler.importXML(initialXML)
       const canvas = modeler.get('canvas')
       canvas.zoom('fit-viewport')
-      
+
       // 更新缩放级别
       const currentViewbox = canvas.viewbox()
       zoomLevel.value = currentViewbox.scale
@@ -534,7 +738,7 @@ const updateElementName = () => {
     const modeling = modeler.get('modeling')
     const elementRegistry = modeler.get('elementRegistry')
     const element = elementRegistry.get(selectedElement.value.id)
-    
+
     if (element) {
       modeling.updateProperties(element, {
         name: selectedElement.value.name
@@ -563,34 +767,50 @@ const isEvent = (elementType: string) => {
   return elementType.includes('Event')
 }
 
-// 监听扩展属性变化，保存到BPMN元素
-// 只在属性值变化时才保存，而不是在选择元素时保存
+// 监听扩展属性变化，保存到BPMN元素本地（不再自动保存到后端）
 let isInitialSelection = true
 
-watch(() => selectedElement.value?.extensionAttributes, async (newVal, oldVal) => {
-  if (newVal && selectedElement.value && modeler && !isInitialSelection && processDefinitionId.value) {
+watch(() => selectedElement.value?.extensionAttributes, async (newVal) => {
+  if (newVal && selectedElement.value && modeler && !isInitialSelection) {
     const elementRegistry = modeler.get('elementRegistry')
     const element = elementRegistry.get(selectedElement.value.id)
-    
+
     if (element) {
-      // 更新扩展属性到元素
+      // 只更新到元素本地，不保存到后端
       element.businessObject.extensionAttributes = newVal
-      
-      // 保存扩展属性到后端
-      try {
-        await saveElementExtension({
-          processDefinitionId: processDefinitionId.value,
-          elementId: selectedElement.value.id,
-          elementType: selectedElement.value.type,
-          extensionAttributes: newVal
-        })
-      } catch (error) {
-        console.error('保存扩展属性失败:', error)
-      }
     }
   }
   isInitialSelection = false
 }, { deep: true })
+
+// 手动保存元素属性到后端
+const saveElementProperties = async () => {
+  if (!selectedElement.value || !processDefinitionId.value) {
+    ElMessage.warning('请先发布流程后再保存属性')
+    return
+  }
+
+  if (!canEditProperties.value) {
+    ElMessage.warning(getEditDisabledReason())
+    return
+  }
+
+  isSaving.value = true
+  try {
+    await saveElementExtension({
+      processDefinitionId: processDefinitionId.value,
+      elementId: selectedElement.value.id,
+      elementType: selectedElement.value.type,
+      extensionAttributes: selectedElement.value.extensionAttributes
+    })
+    ElMessage.success('属性保存成功')
+  } catch (error) {
+    ElMessage.error('属性保存失败')
+    console.error('保存扩展属性失败:', error)
+  } finally {
+    isSaving.value = false
+  }
+}
 
 const deploy = async () => {
   if (!processName.value) {
@@ -600,15 +820,47 @@ const deploy = async () => {
 
   try {
     const { xml } = await modeler.saveXML({ format: true })
-    await deployProcess({
+    const response = await deployProcess({
       name: processName.value,
       xml: xml as string
     })
-    ElMessage.success('流程发布成功')
+
+    // 如果选择了分类，设置流程分类
+    if (selectedCategoryId.value && response.data.data) {
+      const processDefinitionId = response.data.data.id || response.data.data.processDefinitionId
+      if (processDefinitionId) {
+        try {
+          await setProcessCategory(
+            processDefinitionId,
+            selectedCategoryId.value,
+            {
+              tenantId: currentTenantId.value,
+              appId: currentAppId.value,
+              contextId: currentContextId.value
+            }
+          )
+          console.log('流程分类设置成功')
+        } catch (error) {
+          console.error('设置流程分类失败:', error)
+          // 分类设置失败不影响流程发布
+        }
+      }
+    }
+
+    ElMessage.success('流程发布成功，正在返回流程列表...')
+    // 延迟返回，让用户看到成功提示
+    setTimeout(() => {
+      goBackToList()
+    }, 1000)
   } catch (error) {
     ElMessage.error('流程发布失败')
     console.error(error)
   }
+}
+
+// 返回流程列表
+const goBackToList = () => {
+  router.push('/process')
 }
 
 const exportXML = async () => {
@@ -644,7 +896,7 @@ const showSnapshotDialog = async () => {
     ElMessage.warning('请先设置流程名称');
     return;
   }
-  
+
   try {
     const response = await getProcessSnapshots(processName.value);
     snapshots.value = response.data.data;
@@ -671,7 +923,7 @@ const createSnapshot = async () => {
     ElMessage.warning('请输入快照名称');
     return;
   }
-  
+
   if (!processKey.value) {
     ElMessage.warning('请先设置流程Key');
     return;
@@ -684,10 +936,10 @@ const createSnapshot = async () => {
       description: snapshotForm.value.description,
       creator: snapshotForm.value.creator
     });
-    
+
     ElMessage.success('快照创建成功');
     createSnapshotDialogVisible.value = false;
-    
+
     // 刷新快照列表
     const response = await getProcessSnapshots(processKey.value);
     snapshots.value = response.data.data;
@@ -709,11 +961,11 @@ const rollbackToSnapshot = async (snapshotId: string) => {
         type: 'warning',
       }
     );
-    
+
     await apiRollbackToSnapshot(snapshotId);
     ElMessage.success('回滚成功');
     snapshotDialogVisible.value = false;
-    
+
     // 获取最新的流程定义并重新加载
     const latestDefinition = await getProcessDefinitions();
     const latestProcess = latestDefinition.data.data.find((p: any) => p.key === processName.value);
@@ -740,10 +992,10 @@ const deleteSnapshot = async (snapshotId: string) => {
         type: 'warning',
       }
     );
-    
+
     await apiDeleteSnapshot(snapshotId);
     ElMessage.success('删除成功');
-    
+
     // 刷新快照列表
     if (processName.value) {
       const response = await getProcessSnapshots(processName.value);
@@ -787,6 +1039,20 @@ const handleSnapshotCommand = async (command: string) => {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+.back-btn {
+  background: #f5f7fa;
+  border: 1px solid #d8dee7;
+  color: #606266;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+  background: #e6e8eb;
+  border-color: #c8cdd3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .logo {
@@ -854,7 +1120,7 @@ const handleSnapshotCommand = async (command: string) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
+  background-image:
     radial-gradient(circle, #d1d5db 1px, transparent 1px);
   background-size: 24px 24px;
   opacity: 0.5;
@@ -867,7 +1133,7 @@ const handleSnapshotCommand = async (command: string) => {
   margin: 16px;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 
+  box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.08),
     0 1px 4px rgba(0, 0, 0, 0.06),
     inset 0 0 0 1px rgba(0, 0, 0, 0.04);
@@ -906,6 +1172,47 @@ const handleSnapshotCommand = async (command: string) => {
   font-weight: 600;
   padding-bottom: 12px;
   border-bottom: 2px solid #e5e7eb;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.panel-header h3 {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.save-button-wrapper {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+}
+
+.edit-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 8px;
+  border: 1px solid #fbbf24;
+  color: #92400e;
+  font-size: 13px;
+}
+
+.edit-warning .el-icon {
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
 .process-info {

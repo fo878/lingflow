@@ -81,12 +81,13 @@ public class AuthorizationWrapper implements FlowableServiceWrapper {
      * 检查是否为公开操作
      */
     private boolean isPublicOperation(String operation) {
-        for (String publicOp : PUBLIC_OPERATIONS) {
-            if (operation.contains(publicOp)) {
-                return true;
-            }
-        }
-        return false;
+        return true;
+//        for (String publicOp : PUBLIC_OPERATIONS) {
+//            if (operation.contains(publicOp)) {
+//                return true;
+//            }
+//        }
+//        return false;
     }
 
     /**

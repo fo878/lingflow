@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingflow.repository.ProcessDefinitionExtensionRepository">
+
+    <resultMap id="ProcessDefinitionExtensionResultMap" type="com.lingflow.entity.ProcessDefinitionExtension">
+        <id property="id" column="id"/>
+        <result property="processDefinitionId" column="process_definition_id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="tags" column="tags"
+                typeHandler="com.lingflow.config.JsonTypeHandler"/>
+        <result property="appId" column="app_id"/>
+        <result property="contextId" column="context_id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="updatedTime" column="updated_time"/>
+    </resultMap>
+
+    <!-- 根据流程定义ID查询扩展信息 -->
+    <select id="findByProcessDefinitionId" resultMap="ProcessDefinitionExtensionResultMap">
+        SELECT * FROM process_definition_extension
+        WHERE process_definition_id = #{processDefinitionId}
+    </select>
+
+    <!-- 根据分类ID查询所有流程定义扩展 -->
+    <select id="findByCategoryId" resultMap="ProcessDefinitionExtensionResultMap">
+        SELECT * FROM process_definition_extension
+        WHERE category_id = #{categoryId}
+        ORDER BY created_time DESC
+    </select>
+
+    <!-- 根据分类ID列表查询所有流程定义扩展 -->
+    <select id="findByCategoryIds" resultMap="ProcessDefinitionExtensionResultMap">
+        SELECT * FROM process_definition_extension
+        WHERE category_id IN
+        <foreach collection="categoryIds" item="categoryId" open="(" separator="," close=")">
+            #{categoryId}
+        </foreach>
+        ORDER BY created_time DESC
+    </select>
+
+    <!-- 搜索流程（支持模糊搜索，多租户） -->
+    <select id="searchProcesses" resultMap="ProcessDefinitionExtensionResultMap">
+        SELECT pde.*
+        FROM process_definition_extension pde
+        LEFT JOIN process_category pc ON pde.category_id = pc.id
+        WHERE pde.tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR pde.app_id = #{appId})
+          AND (#{contextId} IS NULL OR pde.context_id = #{contextId})
+          <if test="keyword != null and keyword != ''">
+              AND EXISTS (
+                  SELECT 1 FROM ACT_RE_PROCDEF pd
+                  WHERE pd.ID_ = pde.process_definition_id
+                  AND (
+                      pd.NAME_ LIKE CONCAT('%', #{keyword}, '%')
+                      OR pd.KEY_ LIKE CONCAT('%', #{keyword}, '%')
+                  )
+              )
+          </if>
+          <if test="categoryId != null and categoryId != ''">
+              AND pde.category_id = #{categoryId}
+          </if>
+        ORDER BY pde.created_time DESC
+    </select>
+
+    <!-- 统计分类下的流程数量 -->
+    <select id="countByCategoryId" resultType="int">
+        SELECT COUNT(*) FROM process_definition_extension
+        WHERE category_id = #{categoryId}
+    </select>
+
+    <!-- 统计多个分类下的流程数量 -->
+    <select id="countByCategoryIds" resultType="int">
+        SELECT COUNT(*) FROM process_definition_extension
+        WHERE category_id IN
+        <foreach collection="categoryIds" item="categoryId" open="(" separator="," close=")">
+            #{categoryId}
+        </foreach>
+    </select>
+
+    <!-- 保存流程定义扩展 -->
+    <insert id="save" parameterType="com.lingflow.entity.ProcessDefinitionExtension">
+        INSERT INTO process_definition_extension (
+            id, process_definition_id, category_id, tags,
+            app_id, context_id, tenant_id, created_time, updated_time
+        ) VALUES (
+            #{id}, #{processDefinitionId}, #{categoryId},
+            #{tags, typeHandler=com.lingflow.config.JsonTypeHandler},
+            #{appId}, #{contextId}, #{tenantId},
+            #{createdTime}, #{updatedTime}
+        )
+    </insert>
+
+    <!-- 更新流程定义扩展 -->
+    <update id="update" parameterType="com.lingflow.entity.ProcessDefinitionExtension">
+        UPDATE process_definition_extension
+        SET category_id = #{categoryId},
+            tags = #{tags, typeHandler=com.lingflow.config.JsonTypeHandler},
+            updated_time = #{updatedTime}
+        WHERE process_definition_id = #{processDefinitionId}
+    </update>
+
+    <!-- 删除流程定义扩展 -->
+    <delete id="delete">
+        DELETE FROM process_definition_extension
+        WHERE process_definition_id = #{processDefinitionId}
+    </delete>
+
+</mapper>

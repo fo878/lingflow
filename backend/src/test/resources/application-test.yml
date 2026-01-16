@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: false
+
+flowable:
+  database-schema-update: true
+  database-type: h2
+  history-level: audit
+
+logging:
+  level:
+    com.lingflow: DEBUG
+    org.flowable: INFO

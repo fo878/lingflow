@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedTypes;
+import org.postgresql.util.PGobject;
 
 import java.sql.CallableStatement;
 import java.sql.PreparedStatement;
@@ -13,7 +14,8 @@ import java.sql.SQLException;
 
 /**
  * MyBatis JsonNode类型处理器
- * 用于在数据库JSON类型和Java JsonNode之间进行转换
+ * 用于在数据库JSONB类型和Java JsonNode之间进行转换
+ * 支持PostgreSQL的JSONB类型
  */
 @MappedTypes(JsonNode.class)
 public class JsonTypeHandler extends BaseTypeHandler<JsonNode> {
@@ -23,9 +25,13 @@ public class JsonTypeHandler extends BaseTypeHandler<JsonNode> {
     @Override
     public void setNonNullParameter(PreparedStatement ps, int i, JsonNode parameter, JdbcType jdbcType) throws SQLException {
         try {
-            ps.setString(i, objectMapper.writeValueAsString(parameter));
+            // 使用PGobject来处理PostgreSQL的JSONB类型
+            PGobject jsonObject = new PGobject();
+            jsonObject.setType("jsonb");
+            jsonObject.setValue(objectMapper.writeValueAsString(parameter));
+            ps.setObject(i, jsonObject);
         } catch (Exception e) {
-            throw new SQLException("Error converting JsonNode to JSON string", e);
+            throw new SQLException("Error converting JsonNode to JSONB", e);
         }
     }
 

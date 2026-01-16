@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingflow.repository.ProcessCategoryRepository">
+
+    <resultMap id="ProcessCategoryResultMap" type="com.lingflow.entity.ProcessCategory">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="code" column="code"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="path" column="path"/>
+        <result property="level" column="level"/>
+        <result property="description" column="description"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="icon" column="icon"/>
+        <result property="appId" column="app_id"/>
+        <result property="contextId" column="context_id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="updatedTime" column="updated_time"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="isDeleted" column="is_deleted"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <!-- 根据ID查询分类 -->
+    <select id="findById" resultMap="ProcessCategoryResultMap">
+        SELECT * FROM process_category
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据编码查询分类（多租户） -->
+    <select id="findByCode" resultMap="ProcessCategoryResultMap">
+        SELECT * FROM process_category
+        WHERE code = #{code}
+          AND tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR app_id = #{appId})
+          AND (#{contextId} IS NULL OR context_id = #{contextId})
+          AND is_deleted = FALSE
+    </select>
+
+    <!-- 查询所有分类（多租户） -->
+    <select id="findAll" resultMap="ProcessCategoryResultMap">
+        SELECT * FROM process_category
+        WHERE tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR app_id = #{appId})
+          AND (#{contextId} IS NULL OR context_id = #{contextId})
+          AND is_deleted = FALSE
+        ORDER BY sort_order ASC, created_time ASC
+    </select>
+
+    <!-- 根据父ID查询子分类列表（多租户） -->
+    <select id="findByParentId" resultMap="ProcessCategoryResultMap">
+        SELECT * FROM process_category
+        WHERE parent_id = #{parentId}
+          AND tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR app_id = #{appId})
+          AND (#{contextId} IS NULL OR context_id = #{contextId})
+          AND is_deleted = FALSE
+        ORDER BY sort_order ASC, created_time ASC
+    </select>
+
+    <!-- 查询分类树（多租户） -->
+    <select id="findTree" resultMap="ProcessCategoryResultMap">
+        SELECT * FROM process_category
+        WHERE tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR app_id = #{appId})
+          AND (#{contextId} IS NULL OR context_id = #{contextId})
+          AND is_deleted = FALSE
+        ORDER BY level ASC, sort_order ASC, created_time ASC
+    </select>
+
+    <!-- 根据名称或编码搜索分类（模糊搜索，多租户） -->
+    <select id="searchByName" resultMap="ProcessCategoryResultMap">
+        SELECT * FROM process_category
+        WHERE tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR app_id = #{appId})
+          AND (#{contextId} IS NULL OR context_id = #{contextId})
+          AND is_deleted = FALSE
+          AND (name LIKE CONCAT('%', #{keyword}, '%') OR code LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY sort_order ASC, created_time ASC
+    </select>
+
+    <!-- 根据路径前缀查询分类 -->
+    <select id="findByPathLike" resultMap="ProcessCategoryResultMap">
+        SELECT * FROM process_category
+        WHERE path LIKE CONCAT(#{pathPattern}, '%')
+          AND tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR app_id = #{appId})
+          AND (#{contextId} IS NULL OR context_id = #{contextId})
+          AND is_deleted = FALSE
+        ORDER BY level ASC, sort_order ASC
+    </select>
+
+    <!-- 保存分类 -->
+    <insert id="save" parameterType="com.lingflow.entity.ProcessCategory">
+        INSERT INTO process_category (
+            id, name, code, parent_id, path, level, description, sort_order, icon,
+            app_id, context_id, tenant_id,
+            created_time, updated_time, created_by, updated_by, is_deleted, version
+        ) VALUES (
+            #{id}, #{name}, #{code}, #{parentId}, #{path}, #{level}, #{description}, #{sortOrder}, #{icon},
+            #{appId}, #{contextId}, #{tenantId},
+            #{createdTime}, #{updatedTime}, #{createdBy}, #{updatedBy}, #{isDeleted}, #{version}
+        )
+    </insert>
+
+    <!-- 更新分类 -->
+    <update id="update" parameterType="com.lingflow.entity.ProcessCategory">
+        UPDATE process_category
+        SET name = #{name},
+            code = #{code},
+            parent_id = #{parentId},
+            path = #{path},
+            level = #{level},
+            description = #{description},
+            sort_order = #{sortOrder},
+            icon = #{icon},
+            updated_by = #{updatedBy},
+            version = version + 1
+        WHERE id = #{id}
+          AND version = #{version}
+    </update>
+
+    <!-- 更新分类路径 -->
+    <update id="updatePath">
+        UPDATE process_category
+        SET path = #{path},
+            level = #{level}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新乐观锁版本号 -->
+    <update id="updateVersion">
+        UPDATE process_category
+        SET version = version + 1
+        WHERE id = #{id}
+    </update>
+
+    <!-- 删除分类（物理删除） -->
+    <delete id="delete">
+        DELETE FROM process_category
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 软删除分类 -->
+    <update id="softDelete">
+        UPDATE process_category
+        SET is_deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 统计子分类数量 -->
+    <select id="countByParentId" resultType="int">
+        SELECT COUNT(*) FROM process_category
+        WHERE parent_id = #{parentId}
+          AND is_deleted = FALSE
+    </select>
+
+    <!-- 统计分类下的流程数量 -->
+    <select id="countProcessesByCategoryId" resultType="int">
+        SELECT COUNT(*) FROM process_definition_extension
+        WHERE category_id = #{categoryId}
+    </select>
+
+    <!-- 检查分类编码是否存在 -->
+    <select id="countByCode" resultType="int">
+        SELECT COUNT(*) FROM process_category
+        WHERE code = #{code}
+          AND tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR app_id = #{appId})
+          AND (#{contextId} IS NULL OR context_id = #{contextId})
+          AND is_deleted = FALSE
+    </select>
+
+    <!-- 检查分类编码是否存在（排除指定ID） -->
+    <select id="countByCodeExcludeId" resultType="int">
+        SELECT COUNT(*) FROM process_category
+        WHERE code = #{code}
+          AND tenant_id = #{tenantId}
+          AND (#{appId} IS NULL OR app_id = #{appId})
+          AND (#{contextId} IS NULL OR context_id = #{contextId})
+          AND is_deleted = FALSE
+          AND id != #{excludeId}
+    </select>
+
+</mapper>

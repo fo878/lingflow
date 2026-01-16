@@ -1,0 +1,313 @@
+package com.lingflow.controller;
+
+import com.lingflow.dto.Result;
+import com.lingflow.service.ProcessMonitorService;
+import lombok.Data;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 流程监控控制器
+ * 提供流程监控和超时检测相关的API
+ */
+@RestController
+@RequestMapping("/api/monitor")
+public class ProcessMonitorController {
+
+    @Autowired
+    private ProcessMonitorService monitorService;
+
+    /**
+     * 获取流程实例监控信息
+     *
+     * @param processInstanceId 流程实例ID
+     * @return 监控信息
+     */
+    @GetMapping("/process/{processInstanceId}")
+    public Result<ProcessInstanceMonitorVO> getProcessInstanceMonitor(
+            @PathVariable("processInstanceId") String processInstanceId) {
+        try {
+            ProcessInstanceMonitorVO monitor = monitorService.getProcessInstanceMonitor(processInstanceId);
+            return Result.success(monitor);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取流程定义监控信息
+     *
+     * @param processDefinitionId 流程定义ID
+     * @return 监控信息
+     */
+    @GetMapping("/definition/{processDefinitionId}")
+    public Result<ProcessDefinitionMonitorVO> getProcessDefinitionMonitor(
+            @PathVariable("processDefinitionId") String processDefinitionId) {
+        try {
+            ProcessDefinitionMonitorVO monitor = monitorService.getProcessDefinitionMonitor(processDefinitionId);
+            return Result.success(monitor);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 检测超时的流程实例
+     *
+     * @param timeoutHours 超时小时数
+     * @return 超时流程实例列表
+     */
+    @GetMapping("/timeout/{timeoutHours}")
+    public Result<List<String>> detectTimeoutProcesses(
+            @PathVariable("timeoutHours") Long timeoutHours) {
+        try {
+            List<String> timeoutInstances = monitorService.detectTimeoutProcesses(timeoutHours);
+            return Result.success(timeoutInstances);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取所有运行中的流程实例监控信息
+     *
+     * @return 监控信息列表
+     */
+    @GetMapping("/process/running")
+    public Result<List<ProcessInstanceMonitorVO>> getAllRunningProcessMonitors() {
+        try {
+            List<ProcessInstanceMonitorVO> monitors = monitorService.getAllRunningProcessMonitors();
+            return Result.success(monitors);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取活动节点信息
+     *
+     * @param processInstanceId 流程实例ID
+     * @return 活动节点列表
+     */
+    @GetMapping("/process/{processInstanceId}/activities")
+    public Result<List<ActivityNodeVO>> getActivityNodes(
+            @PathVariable("processInstanceId") String processInstanceId) {
+        try {
+            List<ActivityNodeVO> activities = monitorService.getActivityNodes(processInstanceId);
+            return Result.success(activities);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取流程进度信息
+     *
+     * @param processInstanceId 流程实例ID
+     * @return 进度信息
+     */
+    @GetMapping("/process/{processInstanceId}/progress")
+    public Result<ProcessProgressVO> getProcessProgress(
+            @PathVariable("processInstanceId") String processInstanceId) {
+        try {
+            ProcessProgressVO progress = monitorService.getProcessProgress(processInstanceId);
+            return Result.success(progress);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    // ==================== VO 类定义 ====================
+
+    /**
+     * 流程实例监控信息
+     */
+    @Data
+    public static class ProcessInstanceMonitorVO {
+        /**
+         * 流程实例ID
+         */
+        private String processInstanceId;
+
+        /**
+         * 流程定义ID
+         */
+        private String processDefinitionId;
+
+        /**
+         * 流程定义Key
+         */
+        private String processDefinitionKey;
+
+        /**
+         * 流程定义名称
+         */
+        private String processDefinitionName;
+
+        /**
+         * 业务Key
+         */
+        private String businessKey;
+
+        /**
+         * 发起人
+         */
+        private String startUserId;
+
+        /**
+         * 开始时间
+         */
+        private String startTime;
+
+        /**
+         * 运行时长（毫秒）
+         */
+        private Long duration;
+
+        /**
+         * 格式化后的运行时长
+         */
+        private String formattedDuration;
+
+        /**
+         * 当前状态（RUNNING, SUSPENDED, COMPLETED）
+         */
+        private String status;
+
+        /**
+         * 活动节点数
+         */
+        private Integer activeActivityCount;
+
+        /**
+         * 当前任务数
+         */
+        private Integer currentTaskCount;
+
+        /**
+         * 流程进度百分比
+         */
+        private Double progress;
+    }
+
+    /**
+     * 流程定义监控信息
+     */
+    @Data
+    public static class ProcessDefinitionMonitorVO {
+        /**
+         * 流程定义ID
+         */
+        private String processDefinitionId;
+
+        /**
+         * 流程定义Key
+         */
+        private String processDefinitionKey;
+
+        /**
+         * 流程定义名称
+         */
+        private String processDefinitionName;
+
+        /**
+         * 版本
+         */
+        private Integer version;
+
+        /**
+         * 运行中的实例数
+         */
+        private Long runningInstanceCount;
+
+        /**
+         * 已完成的实例数
+         */
+        private Long completedInstanceCount;
+
+        /**
+         * 总实例数
+         */
+        private Long totalInstanceCount;
+
+        /**
+         * 平均完成时间（毫秒）
+         */
+        private Long averageCompletionTime;
+
+        /**
+         * 格式化后的平均完成时间
+         */
+        private String formattedAverageTime;
+    }
+
+    /**
+     * 活动节点信息
+     */
+    @Data
+    public static class ActivityNodeVO {
+        /**
+         * 活动ID
+         */
+        private String activityId;
+
+        /**
+         * 活动名称
+         */
+        private String activityName;
+
+        /**
+         * 活动类型
+         */
+        private String activityType;
+
+        /**
+         * 开始时间
+         */
+        private String startTime;
+    }
+
+    /**
+     * 流程进度信息
+     */
+    @Data
+    public static class ProcessProgressVO {
+        /**
+         * 流程实例ID
+         */
+        private String processInstanceId;
+
+        /**
+         * 总节点数
+         */
+        private Integer totalNodes;
+
+        /**
+         * 已完成节点数
+         */
+        private Integer completedNodes;
+
+        /**
+         * 当前节点数
+         */
+        private Integer currentNodes;
+
+        /**
+         * 剩余节点数
+         */
+        private Integer remainingNodes;
+
+        /**
+         * 进度百分比
+         */
+        private Double progress;
+
+        /**
+         * 进度描述
+         */
+        private String progressDescription;
+    }
+}
