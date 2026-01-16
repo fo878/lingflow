@@ -3,12 +3,13 @@ package com.lingflow.controller;
 import com.lingflow.dto.ProcessDefinitionVO;
 import com.lingflow.dto.ProcessInstanceVO;
 import com.lingflow.dto.Result;
-import com.lingflow.dto.TaskVO;
 import com.lingflow.dto.BpmnElementExtensionDTO;
 import com.lingflow.dto.ElementExtensionQueryResult;
+import com.lingflow.dto.DeployProcessRequest;
 import com.lingflow.entity.BpmnElementExtension;
 import com.lingflow.service.ProcessService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -36,11 +37,9 @@ public class ProcessController {
      * 部署流程
      */
     @PostMapping("/deploy")
-    public Result<Void> deployProcess(@RequestBody Map<String, String> request) {
+    public Result<Void> deployProcess(@Valid @RequestBody DeployProcessRequest request) {
         try {
-            String name = request.get("name");
-            String xml = request.get("xml");
-            processService.deployProcess(name, xml);
+            processService.deployProcess(request.getName(), request.getXml());
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -177,6 +176,7 @@ public class ProcessController {
      * 保存BPMN元素扩展属性
      */
     @PostMapping("/extension")
+    @SuppressWarnings("unchecked")
     public Result<Void> saveElementExtension(@RequestBody Map<String, Object> request) {
         try {
             String processDefinitionId = (String) request.get("processDefinitionId");
@@ -210,6 +210,7 @@ public class ProcessController {
      * 批量保存BPMN元素扩展属性
      */
     @PostMapping("/extensions/batch")
+    @SuppressWarnings("unchecked")
     public Result<Void> batchSaveElementExtensions(@RequestBody Map<String, Object> request) {
         try {
             String processDefinitionId = (String) request.get("processDefinitionId");

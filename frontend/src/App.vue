@@ -4,6 +4,13 @@
       <el-header>
         <div class="header">
           <h1 class="logo-text">LingFlow 流程管理系统</h1>
+          <div class="header-actions">
+            <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="item">
+              <el-button circle @click="goToNotifications">
+                <el-icon><Bell /></el-icon>
+              </el-button>
+            </el-badge>
+          </div>
         </div>
       </el-header>
       <el-container>
@@ -27,6 +34,12 @@
                 <span>流程列表</span>
               </el-menu-item>
             </el-sub-menu>
+
+            <el-menu-item index="/task">
+              <el-icon><Checked /></el-icon>
+              <span>任务办理</span>
+            </el-menu-item>
+
             <el-sub-menu index="monitor">
               <template #title>
                 <el-icon><Monitor /></el-icon>
@@ -41,9 +54,15 @@
                 <span>历史流程</span>
               </el-menu-item>
             </el-sub-menu>
-            <el-menu-item index="/task">
-              <el-icon><List /></el-icon>
-              <span>任务办理</span>
+
+            <el-menu-item index="/statistics">
+              <el-icon><DataAnalysis /></el-icon>
+              <span>流程统计</span>
+            </el-menu-item>
+
+            <el-menu-item index="/notification">
+              <el-icon><Bell /></el-icon>
+              <span>消息通知</span>
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -56,17 +75,51 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { ElSubMenu } from 'element-plus'
-import { Document, Monitor, List, VideoPlay, Finished } from '@element-plus/icons-vue'
+import { ref, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  Document,
+  Monitor,
+  List,
+  VideoPlay,
+  Finished,
+  Bell,
+  Checked,
+  DataAnalysis
+} from '@element-plus/icons-vue'
+import { getUnreadNotificationCount } from '@/api/extended'
 
 const route = useRoute()
+const router = useRouter()
 const activeMenu = ref(route.path)
+const unreadCount = ref(0)
 
 // 监听路由变化并更新激活的菜单项
 watch(() => route.path, (newPath) => {
   activeMenu.value = newPath
+})
+
+// 获取未读通知数量
+const fetchUnreadCount = async () => {
+  try {
+    const userId = 'user001' // 实际应从用户状态中获取
+    const response = await getUnreadNotificationCount(userId)
+    unreadCount.value = response.data || 0
+  } catch (error) {
+    console.error('获取未读通知数量失败', error)
+  }
+}
+
+// 跳转到通知页面
+const goToNotifications = () => {
+  router.push('/notification')
+}
+
+// 定时刷新未读数量
+onMounted(() => {
+  fetchUnreadCount()
+  // 每30秒刷新一次未读数量
+  setInterval(fetchUnreadCount, 30000)
 })
 </script>
 
@@ -81,7 +134,8 @@ watch(() => route.path, (newPath) => {
   color: white;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 0 20px;
   height: 100%;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
@@ -95,7 +149,13 @@ watch(() => route.path, (newPath) => {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 1px;
-  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif, #409eff;
+  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+}
+
+.header-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
 .el-header {

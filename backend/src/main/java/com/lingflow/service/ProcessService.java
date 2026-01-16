@@ -50,130 +50,72 @@ public class ProcessService {
     @Autowired
     private ProcessEngine processEngine;
 
+    @Autowired
+    private ExtendedRepositoryService extendedRepositoryService;
+
+    @Autowired
+    private ExtendedRuntimeService extendedRuntimeService;
+
+    @Autowired
+    private ExtendedTaskService extendedTaskService;
+
+    @Autowired
+    private ExtendedHistoryService extendedHistoryService;
+
     /**
      * 部署流程
      */
     public void deployProcess(String name, String xml) {
-        repositoryService.createDeployment()
-                .name(name)
-                .addBytes(name + ".bpmn20.xml", xml.getBytes(StandardCharsets.UTF_8))
-                .deploy();
+        extendedRepositoryService.deploy(name, xml);
     }
 
     /**
      * 获取所有流程定义
      */
     public List<ProcessDefinitionVO> getProcessDefinitions() {
-        List<ProcessDefinition> definitions = repositoryService.createProcessDefinitionQuery()
-                .orderByProcessDefinitionVersion()
-                .desc()
-                .list();
-
-        return definitions.stream().map(def -> {
-            ProcessDefinitionVO vo = new ProcessDefinitionVO();
-            vo.setKey(def.getKey());
-            vo.setName(def.getName());
-            vo.setVersion(def.getVersion());
-            vo.setDeploymentId(def.getDeploymentId());
-            vo.setId(def.getId());
-            vo.setResource(def.getResourceName());
-            return vo;
-        }).collect(Collectors.toList());
+        return extendedRepositoryService.getProcessDefinitions();
     }
 
     /**
      * 删除流程定义
      */
     public void deleteProcessDefinition(String deploymentId) {
-        repositoryService.deleteDeployment(deploymentId, true);
+        extendedRepositoryService.deleteDeployment(deploymentId, true, false);
     }
 
     /**
      * 启动流程实例
      */
     public ProcessInstanceVO startProcess(String processKey, String businessKey) {
-        ProcessInstance instance;
-        if (businessKey != null && !businessKey.isEmpty()) {
-            instance = runtimeService.startProcessInstanceByKey(processKey, businessKey);
-        } else {
-            instance = runtimeService.startProcessInstanceByKey(processKey);
-        }
-
-        ProcessInstanceVO vo = new ProcessInstanceVO();
-        vo.setId(instance.getId());
-        vo.setProcessDefinitionId(instance.getProcessDefinitionId());
-        vo.setBusinessKey(instance.getBusinessKey());
-        vo.setStartTime(instance.getStartTime());
-        return vo;
+        return extendedRuntimeService.startProcessInstanceByKey(processKey, businessKey, null);
     }
 
     /**
      * 获取运行中的流程实例
      */
     public List<ProcessInstanceVO> getRunningInstances() {
-        List<ProcessInstance> instances = runtimeService.createProcessInstanceQuery()
-                .list();
-
-        return instances.stream().map(instance -> {
-            ProcessInstanceVO vo = new ProcessInstanceVO();
-            vo.setId(instance.getId());
-            vo.setProcessDefinitionId(instance.getProcessDefinitionId());
-            vo.setBusinessKey(instance.getBusinessKey());
-            vo.setStartTime(instance.getStartTime());
-            return vo;
-        }).collect(Collectors.toList());
+        return extendedRuntimeService.getRunningProcessInstances();
     }
 
     /**
      * 获取已完结的流程实例
      */
     public List<ProcessInstanceVO> getCompletedInstances() {
-        List<org.flowable.engine.history.HistoricProcessInstance> instances = historyService.createHistoricProcessInstanceQuery()
-                .finished()
-                .orderByProcessInstanceEndTime()
-                .desc()
-                .list();
-
-        return instances.stream().map(instance -> {
-            ProcessInstanceVO vo = new ProcessInstanceVO();
-            vo.setId(instance.getId());
-            vo.setProcessDefinitionId(instance.getProcessDefinitionId());
-            vo.setBusinessKey(instance.getBusinessKey());
-            vo.setStartTime(instance.getStartTime());
-            vo.setEndTime(instance.getEndTime());
-            return vo;
-        }).collect(Collectors.toList());
+        return extendedHistoryService.getCompletedProcessInstances();
     }
 
     /**
      * 获取待办任务
      */
     public List<TaskVO> getTasks() {
-        List<Task> tasks = taskService.createTaskQuery()
-                .orderByTaskCreateTime()
-                .desc()
-                .list();
-
-        return tasks.stream().map(task -> {
-            TaskVO vo = new TaskVO();
-            vo.setId(task.getId());
-            vo.setName(task.getName());
-            vo.setProcessInstanceId(task.getProcessInstanceId());
-            vo.setCreateTime(task.getCreateTime());
-            vo.setAssignee(task.getAssignee());
-            return vo;
-        }).collect(Collectors.toList());
+        return extendedTaskService.getTasks();
     }
 
     /**
      * 完成任务
      */
     public void completeTask(String taskId, Map<String, Object> variables) {
-        if (variables != null && !variables.isEmpty()) {
-            taskService.complete(taskId, variables);
-        } else {
-            taskService.complete(taskId);
-        }
+        extendedTaskService.completeTask(taskId, variables);
     }
 
     /**
@@ -191,7 +133,7 @@ public class ProcessService {
         if (processInstance != null) {
             // 运行中的流程实例
             processDefinitionId = processInstance.getProcessDefinitionId();
-            activeActivityIds = runtimeService.getActiveActivityIds(processInstanceId);
+            activeActivityIds = extendedRuntimeService.getActiveActivityIds(processInstanceId);
         } else {
             // 查询历史流程实例
             org.flowable.engine.history.HistoricProcessInstance historicInstance = historyService
@@ -308,7 +250,7 @@ public class ProcessService {
         // 获取当前活动节点ID（仅运行中流程）
         List<String> activeActivityIds = Collections.emptyList();
         if (!isFinished) {
-            activeActivityIds = runtimeService.getActiveActivityIds(processInstanceId);
+            activeActivityIds = extendedRuntimeService.getActiveActivityIds(processInstanceId);
         }
 
         // 获取历史任务信息
@@ -488,7 +430,7 @@ public class ProcessService {
 
         // 重新部署快照中的BPMN XML
         String snapshotName = snapshot.getSnapshotName() + "_rollback_" + System.currentTimeMillis();
-        deployProcess(snapshotName, snapshot.getBpmnXml());
+        extendedRepositoryService.deploy(snapshotName, snapshot.getBpmnXml());
     }
 
     /**

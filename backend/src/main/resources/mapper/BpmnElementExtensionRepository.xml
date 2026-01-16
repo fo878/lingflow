@@ -29,15 +29,17 @@
     </resultMap>
 
     <insert id="save" parameterType="com.lingflow.entity.BpmnElementExtension">
-        INSERT INTO bpmn_element_extension 
+        INSERT INTO bpmn_element_extension
         (id, process_definition_id, element_id, element_type, extension_attributes, version, created_time, updated_time)
-        VALUES 
-        (#{id}, #{processDefinitionId}, #{elementId}, #{elementType}, #{extensionAttributes}, #{version}, #{createdTime}, #{updatedTime})
+        VALUES
+        (#{id}, #{processDefinitionId}, #{elementId}, #{elementType},
+         #{extensionAttributes, typeHandler=com.lingflow.config.JsonTypeHandler},
+         #{version}, #{createdTime}, #{updatedTime})
     </insert>
 
     <update id="update" parameterType="com.lingflow.entity.BpmnElementExtension">
-        UPDATE bpmn_element_extension 
-        SET extension_attributes = #{extensionAttributes}, 
+        UPDATE bpmn_element_extension
+        SET extension_attributes = #{extensionAttributes, typeHandler=com.lingflow.config.JsonTypeHandler},
             version = version + 1,
             updated_time = #{updatedTime}
         WHERE process_definition_id = #{processDefinitionId} AND element_id = #{elementId}
@@ -66,10 +68,12 @@
     </delete>
 
     <insert id="saveHistory" parameterType="com.lingflow.entity.BpmnElementExtensionHistory">
-        INSERT INTO bpmn_element_extension_history 
+        INSERT INTO bpmn_element_extension_history
         (id, extension_id, process_definition_id, element_id, element_type, extension_attributes, version, operation_type, operation_time)
-        VALUES 
-        (#{id}, #{extensionId}, #{processDefinitionId}, #{elementId}, #{elementType}, #{extensionAttributes}, #{version}, #{operationType}, #{operationTime})
+        VALUES
+        (#{id}, #{extensionId}, #{processDefinitionId}, #{elementId}, #{elementType},
+         #{extensionAttributes, typeHandler=com.lingflow.config.JsonTypeHandler},
+         #{version}, #{operationType}, #{operationTime})
     </insert>
 
     <select id="findHistoryByExtensionId" parameterType="string" resultMap="BpmnElementExtensionHistoryResultMap">

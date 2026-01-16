@@ -15,7 +15,6 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Designer',
     component: () => import('@/views/process/Designer.vue')
   },
-
   {
     path: '/task',
     name: 'Task',
@@ -25,6 +24,16 @@ const routes: Array<RouteRecordRaw> = [
     path: '/monitor',
     name: 'Monitor',
     component: () => import('@/views/monitor/Index.vue')
+  },
+  {
+    path: '/notification',
+    name: 'Notification',
+    component: () => import('@/views/notification/Index.vue')
+  },
+  {
+    path: '/statistics',
+    name: 'Statistics',
+    component: () => import('@/views/statistics/Index.vue')
   }
 ]
 
