@@ -2,7 +2,7 @@ package com.lingflow.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lingflow.dto.TaskVO;
-import com.lingflow.service.ProcessService;
+import com.lingflow.service.ProcessDefinitionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TaskControllerTest {
 
     @Mock
-    private ProcessService processService;
+    private ProcessDefinitionService processDefinitionService;
 
     @InjectMocks
     private TaskController taskController;
@@ -54,7 +54,7 @@ class TaskControllerTest {
         task1.setProcessInstanceId("process1");
         tasks.add(task1);
 
-        when(processService.getTasks()).thenReturn(tasks);
+        when(processDefinitionService.getTasks()).thenReturn(tasks);
 
         // 执行测试
         mockMvc.perform(get("/task/list"))
@@ -64,37 +64,37 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.data[0].id").value("task1"))
                 .andExpect(jsonPath("$.data[0].name").value("审批任务"));
 
-        verify(processService, times(1)).getTasks();
+        verify(processDefinitionService, times(1)).getTasks();
     }
 
     @Test
     void testGetTasks_EmptyList() throws Exception {
         List<TaskVO> tasks = new ArrayList<>();
-        when(processService.getTasks()).thenReturn(tasks);
+        when(processDefinitionService.getTasks()).thenReturn(tasks);
 
         mockMvc.perform(get("/task/list"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").isArray());
 
-        verify(processService, times(1)).getTasks();
+        verify(processDefinitionService, times(1)).getTasks();
     }
 
     @Test
     void testGetTasks_Exception() throws Exception {
-        when(processService.getTasks()).thenThrow(new RuntimeException("数据库错误"));
+        when(processDefinitionService.getTasks()).thenThrow(new RuntimeException("数据库错误"));
 
         mockMvc.perform(get("/task/list"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(500))
                 .andExpect(jsonPath("$.message").value("数据库错误"));
 
-        verify(processService, times(1)).getTasks();
+        verify(processDefinitionService, times(1)).getTasks();
     }
 
     @Test
     void testCompleteTask_Success() throws Exception {
-        doNothing().when(processService).completeTask(eq("task1"), anyMap());
+        doNothing().when(processDefinitionService).completeTask(eq("task1"), anyMap());
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("approved", true);
@@ -105,24 +105,24 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(processService, times(1)).completeTask(eq("task1"), anyMap());
+        verify(processDefinitionService, times(1)).completeTask(eq("task1"), anyMap());
     }
 
     @Test
     void testCompleteTask_NoVariables() throws Exception {
-        doNothing().when(processService).completeTask(eq("task1"), isNull());
+        doNothing().when(processDefinitionService).completeTask(eq("task1"), isNull());
 
         mockMvc.perform(post("/task/complete/task1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(processService, times(1)).completeTask(eq("task1"), isNull());
+        verify(processDefinitionService, times(1)).completeTask(eq("task1"), isNull());
     }
 
     @Test
     void testCompleteTask_Exception() throws Exception {
         doThrow(new RuntimeException("任务不存在"))
-                .when(processService).completeTask(anyString(), anyMap());
+                .when(processDefinitionService).completeTask(anyString(), anyMap());
 
         Map<String, Object> variables = new HashMap<>();
 
@@ -133,7 +133,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.code").value(500))
                 .andExpect(jsonPath("$.message").value("任务不存在"));
 
-        verify(processService, times(1)).completeTask(eq("invalid-task"), anyMap());
+        verify(processDefinitionService, times(1)).completeTask(eq("invalid-task"), anyMap());
     }
 
     @Test

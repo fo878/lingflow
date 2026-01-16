@@ -2,7 +2,7 @@ package com.lingflow.controller;
 
 import com.lingflow.dto.Result;
 import com.lingflow.dto.TaskVO;
-import com.lingflow.service.ProcessService;
+import com.lingflow.service.ProcessDefinitionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +17,7 @@ import java.util.Map;
 public class TaskController {
 
     @Autowired
-    private ProcessService processService;
+    private ProcessDefinitionService processDefinitionService;
 
     /**
      * 获取待办任务列表
@@ -25,7 +25,7 @@ public class TaskController {
     @GetMapping("/list")
     public Result<List<TaskVO>> getTasks() {
         try {
-            List<TaskVO> tasks = processService.getTasks();
+            List<TaskVO> tasks = processDefinitionService.getTasks();
             return Result.success(tasks);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -40,7 +40,7 @@ public class TaskController {
             @PathVariable("taskId") String taskId,
             @RequestBody(required = false) Map<String, Object> variables) {
         try {
-            processService.completeTask(taskId, variables);
+            processDefinitionService.completeTask(taskId, variables);
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());

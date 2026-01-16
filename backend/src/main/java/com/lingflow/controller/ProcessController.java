@@ -7,7 +7,7 @@ import com.lingflow.dto.BpmnElementExtensionDTO;
 import com.lingflow.dto.ElementExtensionQueryResult;
 import com.lingflow.dto.DeployProcessRequest;
 import com.lingflow.entity.BpmnElementExtension;
-import com.lingflow.service.ProcessService;
+import com.lingflow.service.ProcessDefinitionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +28,7 @@ import java.util.Map;
 public class ProcessController {
 
     @Autowired
-    private ProcessService processService;
+    private ProcessDefinitionService processDefinitionService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -39,7 +39,7 @@ public class ProcessController {
     @PostMapping("/deploy")
     public Result<Void> deployProcess(@Valid @RequestBody DeployProcessRequest request) {
         try {
-            processService.deployProcess(request.getName(), request.getXml());
+            processDefinitionService.deployProcess(request.getName(), request.getXml());
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -52,7 +52,7 @@ public class ProcessController {
     @GetMapping("/definitions")
     public Result<List<ProcessDefinitionVO>> getProcessDefinitions() {
         try {
-            List<ProcessDefinitionVO> definitions = processService.getProcessDefinitions();
+            List<ProcessDefinitionVO> definitions = processDefinitionService.getProcessDefinitions();
             return Result.success(definitions);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -65,7 +65,7 @@ public class ProcessController {
     @DeleteMapping("/definition/{deploymentId}")
     public Result<Void> deleteProcessDefinition(@PathVariable("deploymentId") String deploymentId) {
         try {
-            processService.deleteProcessDefinition(deploymentId);
+            processDefinitionService.deleteProcessDefinition(deploymentId);
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -81,7 +81,7 @@ public class ProcessController {
             @RequestBody(required = false) Map<String, String> variables) {
         try {
             String businessKey = variables != null ? variables.get("businessKey") : null;
-            ProcessInstanceVO instance = processService.startProcess(processKey, businessKey);
+            ProcessInstanceVO instance = processDefinitionService.startProcess(processKey, businessKey);
             return Result.success(instance);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -94,7 +94,7 @@ public class ProcessController {
     @GetMapping("/running")
     public Result<List<ProcessInstanceVO>> getRunningInstances() {
         try {
-            List<ProcessInstanceVO> instances = processService.getRunningInstances();
+            List<ProcessInstanceVO> instances = processDefinitionService.getRunningInstances();
             return Result.success(instances);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -107,7 +107,7 @@ public class ProcessController {
     @GetMapping("/completed")
     public Result<List<ProcessInstanceVO>> getCompletedInstances() {
         try {
-            List<ProcessInstanceVO> instances = processService.getCompletedInstances();
+            List<ProcessInstanceVO> instances = processDefinitionService.getCompletedInstances();
             return Result.success(instances);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -120,7 +120,7 @@ public class ProcessController {
     @GetMapping("/diagram/{processInstanceId}")
     public ResponseEntity<byte[]> getProcessDiagram(@PathVariable("processInstanceId") String processInstanceId) {
         try {
-            byte[] diagram = processService.generateDiagram(processInstanceId);
+            byte[] diagram = processDefinitionService.generateDiagram(processInstanceId);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.IMAGE_PNG);
             return new ResponseEntity<>(diagram, headers, HttpStatus.OK);
@@ -135,7 +135,7 @@ public class ProcessController {
     @GetMapping("/definition/diagram/{processDefinitionId}")
     public ResponseEntity<byte[]> getProcessDefinitionDiagram(@PathVariable("processDefinitionId") String processDefinitionId) {
         try {
-            byte[] diagram = processService.generateProcessDefinitionDiagram(processDefinitionId);
+            byte[] diagram = processDefinitionService.generateProcessDefinitionDiagram(processDefinitionId);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.IMAGE_PNG);
             return new ResponseEntity<>(diagram, headers, HttpStatus.OK);
@@ -150,7 +150,7 @@ public class ProcessController {
     @GetMapping("/definition/xml/{processDefinitionId}")
     public Result<Map<String, Object>> getProcessDefinitionXml(@PathVariable("processDefinitionId") String processDefinitionId) {
         try {
-            Map<String, Object> result = processService.getProcessDefinitionXml(processDefinitionId);
+            Map<String, Object> result = processDefinitionService.getProcessDefinitionXml(processDefinitionId);
             return Result.success(result);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -163,7 +163,7 @@ public class ProcessController {
     @GetMapping("/bpmn/{processInstanceId}")
     public Result<Map<String, Object>> getProcessBpmn(@PathVariable("processInstanceId") String processInstanceId) {
         try {
-            Map<String, Object> result = processService.getProcessBpmnWithNodeInfo(processInstanceId);
+            Map<String, Object> result = processDefinitionService.getProcessBpmnWithNodeInfo(processInstanceId);
             return Result.success(result);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -184,7 +184,7 @@ public class ProcessController {
             String elementType = (String) request.get("elementType");
             com.fasterxml.jackson.databind.JsonNode extensionAttributes = objectMapper.valueToTree(request.get("extensionAttributes"));
             
-            processService.saveElementExtension(processDefinitionId, elementId, elementType, extensionAttributes);
+            processDefinitionService.saveElementExtension(processDefinitionId, elementId, elementType, extensionAttributes);
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -199,7 +199,7 @@ public class ProcessController {
             @PathVariable("processDefinitionId") String processDefinitionId,
             @PathVariable("elementId") String elementId) {
         try {
-            ElementExtensionQueryResult result = processService.getElementExtension(processDefinitionId, elementId);
+            ElementExtensionQueryResult result = processDefinitionService.getElementExtension(processDefinitionId, elementId);
             return Result.success(result);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -225,7 +225,7 @@ public class ProcessController {
                 extensionDTOs.add(dto);
             }
             
-            processService.batchSaveElementExtensions(processDefinitionId, extensionDTOs);
+            processDefinitionService.batchSaveElementExtensions(processDefinitionId, extensionDTOs);
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -238,7 +238,7 @@ public class ProcessController {
     @GetMapping("/extensions/{processDefinitionId}")
     public Result<java.util.List<BpmnElementExtension>> getAllElementExtensions(@PathVariable("processDefinitionId") String processDefinitionId) {
         try {
-            java.util.List<BpmnElementExtension> extensions = processService.getAllElementExtensions(processDefinitionId);
+            java.util.List<BpmnElementExtension> extensions = processDefinitionService.getAllElementExtensions(processDefinitionId);
             return Result.success(extensions);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -253,7 +253,7 @@ public class ProcessController {
             @PathVariable("processDefinitionId") String processDefinitionId,
             @PathVariable("elementId") String elementId) {
         try {
-            processService.deleteElementExtension(processDefinitionId, elementId);
+            processDefinitionService.deleteElementExtension(processDefinitionId, elementId);
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());

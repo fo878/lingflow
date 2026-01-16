@@ -28,9 +28,24 @@
           <span class="zoom-display">{{ Math.round(zoomLevel * 100) }}%</span>
         </div>
         <div class="operation-buttons">
+          <!-- 流程状态标签 -->
+          <el-tag v-if="processStatus !== 'draft'"
+                  :type="processStatus === 'active' ? 'success' : 'warning'"
+                  size="large"
+                  class="status-tag">
+            {{ processStatus === 'active' ? '已发布' : '已停用' }}
+          </el-tag>
+          <el-tag v-else type="info" size="large" class="status-tag">草稿</el-tag>
+
+          <!-- 保存按钮 -->
+          <el-button @click="saveProcess" :loading="isSaving" class="save-btn">
+            <el-icon><Document /></el-icon>
+            保存
+          </el-button>
+
           <!-- 快照按钮组 -->
           <el-dropdown split-button type="default" @click="showSnapshotDialog" @command="handleSnapshotCommand">
-            <el-icon><Document /></el-icon>
+            <el-icon><DocumentCopy /></el-icon>
             快照
             <template #dropdown>
               <el-dropdown-menu>
@@ -45,9 +60,34 @@
             <el-icon><Download /></el-icon>
             导出
           </el-button>
-          <el-button type="primary" @click="deploy" class="publish-btn">
-            <el-icon><Upload /></el-icon>
-            发布流程
+
+          <!-- 发布/停用按钮组 -->
+          <el-dropdown v-if="processStatus === 'draft' || processStatus === 'suspended'"
+                      split-button
+                      type="primary"
+                      @click="publishProcess"
+                      :loading="isPublishing"
+                      class="publish-btn"
+                      @command="handlePublishCommand">
+            <el-icon><VideoPlay /></el-icon>
+            {{ processStatus === 'draft' ? '发布流程' : '重新激活' }}
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="processStatus === 'draft'" command="publishAndActivate">
+                  <el-icon><CircleCheck /></el-icon>
+                  发布并激活
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <el-button v-else
+                    type="warning"
+                    @click="suspendProcess"
+                    :loading="isSuspending"
+                    class="suspend-btn">
+            <el-icon><VideoPause /></el-icon>
+            停用流程
           </el-button>
         </div>
       </div>
@@ -362,12 +402,29 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick, watch, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ZoomIn, ZoomOut, Download, Upload, Refresh, Document, Plus, InfoFilled, ArrowLeft } from '@element-plus/icons-vue'
+import {
+  ZoomIn,
+  ZoomOut,
+  Download,
+  Upload,
+  Refresh,
+  Document,
+  DocumentCopy,
+  Plus,
+  InfoFilled,
+  ArrowLeft,
+  VideoPlay,
+  VideoPause,
+  CircleCheck
+} from '@element-plus/icons-vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import {
-  deployProcess,
+  saveProcessDefinition,
+  updateProcessDefinition,
+  activateProcessDefinition,
+  suspendProcessDefinition,
   getProcessDefinitions,
   getProcessDefinitionXml,
   createProcessSnapshot,
@@ -434,8 +491,10 @@ const zoomLevel = ref(1)
 // 选中的元素
 const selectedElement = ref<any>(null)
 
-// 保存中状态
+// 加载状态
 const isSaving = ref(false)
+const isPublishing = ref(false)
+const isSuspending = ref(false)
 
 // 计算是否可以编辑属性
 // 设计态: 可以编辑所有属性
@@ -812,49 +871,121 @@ const saveElementProperties = async () => {
   }
 }
 
-const deploy = async () => {
+// ==================== 流程操作函数 ====================
+
+/**
+ * 保存流程定义（草稿）
+ */
+const saveProcess = async () => {
   if (!processName.value) {
     ElMessage.warning('请输入流程名称')
     return
   }
 
+  isSaving.value = true
   try {
     const { xml } = await modeler.saveXML({ format: true })
-    const response = await deployProcess({
+
+    const response = await saveProcessDefinition({
+      id: processDefinitionId.value, // 编辑时需要ID
       name: processName.value,
-      xml: xml as string
+      key: processKey.value || processName.value.replace(/\s+/g, '_').toLowerCase(),
+      description: processDescription.value,
+      xml: xml as string,
+      categoryId: selectedCategoryId.value,
+      tenantId: currentTenantId.value,
+      appId: currentAppId.value,
+      contextId: currentContextId.value
     })
 
-    // 如果选择了分类，设置流程分类
-    if (selectedCategoryId.value && response.data.data) {
-      const processDefinitionId = response.data.data.id || response.data.data.processDefinitionId
-      if (processDefinitionId) {
-        try {
-          await setProcessCategory(
-            processDefinitionId,
-            selectedCategoryId.value,
-            {
-              tenantId: currentTenantId.value,
-              appId: currentAppId.value,
-              contextId: currentContextId.value
-            }
-          )
-          console.log('流程分类设置成功')
-        } catch (error) {
-          console.error('设置流程分类失败:', error)
-          // 分类设置失败不影响流程发布
-        }
-      }
+    // 保存返回的流程定义ID
+    if (response.data.data && response.data.data.id) {
+      processDefinitionId.value = response.data.data.id
     }
 
-    ElMessage.success('流程发布成功，正在返回流程列表...')
-    // 延迟返回，让用户看到成功提示
-    setTimeout(() => {
-      goBackToList()
-    }, 1000)
+    ElMessage.success('流程保存成功')
+  } catch (error) {
+    ElMessage.error('流程保存失败')
+    console.error(error)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+/**
+ * 发布/激活流程
+ */
+const publishProcess = async () => {
+  if (!processName.value) {
+    ElMessage.warning('请输入流程名称')
+    return
+  }
+
+  // 如果是草稿状态，先保存
+  if (processStatus.value === 'draft') {
+    await saveProcess()
+  }
+
+  if (!processDefinitionId.value) {
+    ElMessage.error('流程定义ID不存在，请先保存流程')
+    return
+  }
+
+  isPublishing.value = true
+  try {
+    await activateProcessDefinition(processDefinitionId.value)
+    processStatus.value = 'active'
+    processSuspended.value = false
+
+    ElMessage.success('流程发布成功')
   } catch (error) {
     ElMessage.error('流程发布失败')
     console.error(error)
+  } finally {
+    isPublishing.value = false
+  }
+}
+
+/**
+ * 停用流程
+ */
+const suspendProcess = async () => {
+  if (!processDefinitionId.value) {
+    ElMessage.error('流程定义ID不存在')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm('确定要停用此流程吗？停用后将无法启动新的流程实例。', '确认停用', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    isSuspending.value = true
+    try {
+      await suspendProcessDefinition(processDefinitionId.value)
+      processStatus.value = 'suspended'
+      processSuspended.value = true
+
+      ElMessage.success('流程已停用')
+    } catch (error) {
+      ElMessage.error('停用流程失败')
+      console.error(error)
+    } finally {
+      isSuspending.value = false
+    }
+  } catch {
+    // 用户取消
+  }
+}
+
+/**
+ * 处理发布命令
+ */
+const handlePublishCommand = async (command: string) => {
+  if (command === 'publishAndActivate') {
+    await publishProcess()
   }
 }
 
@@ -1089,11 +1220,50 @@ const handleSnapshotCommand = async (command: string) => {
 .operation-buttons {
   display: flex;
   gap: 10px;
+  align-items: center;
+}
+
+.status-tag {
+  font-weight: 500;
+  padding: 8px 16px;
+}
+
+.save-btn {
+  background: #67c23a;
+  border-color: #67c23a;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #5daf34;
+  border-color: #5daf34;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.4);
+  transition: all 0.3s ease;
+}
+
+.publish-btn {
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  border: none;
 }
 
 .publish-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.suspend-btn {
+  background: #e6a23c;
+  border-color: #e6a23c;
+  color: white;
+}
+
+.suspend-btn:hover {
+  background: #d99a2e;
+  border-color: #d99a2e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(230, 162, 60, 0.4);
   transition: all 0.3s ease;
 }
 

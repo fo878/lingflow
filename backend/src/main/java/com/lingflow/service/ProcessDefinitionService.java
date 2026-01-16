@@ -4,15 +4,16 @@ import com.lingflow.dto.*;
 import com.lingflow.entity.ProcessSnapshot;
 import com.lingflow.entity.BpmnElementExtension;
 import com.lingflow.entity.BpmnElementExtensionHistory;
+import com.lingflow.entity.ProcessDefinitionExtension;
 import com.lingflow.repository.ProcessSnapshotRepository;
 import com.lingflow.repository.BpmnElementExtensionRepository;
+import com.lingflow.repository.ProcessDefinitionExtensionRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.engine.*;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
-import org.flowable.task.api.Task;
 import org.flowable.image.ProcessDiagramGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,15 +26,14 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 流程服务类
  */
 @Service
-public class ProcessService {
+public class ProcessDefinitionService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProcessService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ProcessDefinitionService.class);
 
     @Autowired
     private RepositoryService repositoryService;
@@ -61,6 +61,12 @@ public class ProcessService {
 
     @Autowired
     private ExtendedHistoryService extendedHistoryService;
+
+    @Autowired
+    private ProcessDefinitionExtensionRepository processDefinitionExtensionRepository;
+
+    @Autowired
+    private BpmnElementExtensionRepository bpmnElementExtensionRepository;
 
     /**
      * 部署流程
@@ -449,9 +455,6 @@ public class ProcessService {
     // ==================== BPMN元素扩展属性管理 ====================
 
     @Autowired
-    private BpmnElementExtensionRepository bpmnElementExtensionRepository;
-
-    @Autowired
     private ObjectMapper objectMapper;
 
     /**
@@ -575,9 +578,280 @@ public class ProcessService {
             history.setOperationType("DELETE");
             history.setOperationTime(java.time.LocalDateTime.now());
             bpmnElementExtensionRepository.saveHistory(history);
-            
+
             // 删除记录
             bpmnElementExtensionRepository.deleteByProcessAndElement(processDefinitionId, elementId);
+        }
+    }
+
+    // ==================== 流程定义管理方法 ====================
+
+    /**
+     * 保存流程定义（草稿状态）
+     * 如果ID存在则更新，否则创建新的流程定义
+     */
+    @Transactional
+    public Map<String, Object> saveProcessDefinition(ProcessDefinitionDTO dto) {
+        try {
+            String processDefinitionId = dto.getId();
+            String processKey = dto.getKey() != null && !dto.getKey().isEmpty()
+                    ? dto.getKey()
+                    : dto.getName().replaceAll("\\s+", "_").toLowerCase();
+
+            if (processDefinitionId != null && !processDefinitionId.isEmpty()) {
+                // ============ 更新现有流程定义 ============
+                logger.info("更新现有流程定义: id={}, name={}, key={}",
+                        processDefinitionId, dto.getName(), processKey);
+
+                ProcessDefinition existingDefinition = repositoryService.createProcessDefinitionQuery()
+                        .processDefinitionId(processDefinitionId)
+                        .singleResult();
+
+                if (existingDefinition == null) {
+                    throw new IllegalArgumentException("流程定义不存在: " + processDefinitionId);
+                }
+
+                // 1. 更新 BPMN XML 中的流程属性
+                String updatedXml = updateBpmnXmlProcessAttributes(
+                        dto.getXml(),
+                        processKey,
+                        dto.getName()
+                );
+
+                // 2. 重新部署流程定义（创建新版本）
+                String deploymentName = dto.getName() + ".bpmn20.xml";
+                org.flowable.engine.repository.Deployment deployment = repositoryService.createDeployment()
+                        .name(dto.getName())
+                        .addBytes(deploymentName, updatedXml.getBytes(StandardCharsets.UTF_8))
+                        .deploy();
+
+                // 3. 获取新的流程定义
+                ProcessDefinition newDefinition = repositoryService.createProcessDefinitionQuery()
+                        .deploymentId(deployment.getId())
+                        .singleResult();
+
+                if (newDefinition != null) {
+                    // 4. 暂停新版本的流程定义（保持草稿状态）
+                    repositoryService.suspendProcessDefinitionById(newDefinition.getId());
+
+                    // 5. 更新分类关联
+                    saveOrUpdateProcessDefinitionExtension(
+                            newDefinition.getId(),
+                            dto.getCategoryId(),
+                            dto.getTenantId(),
+                            dto.getAppId(),
+                            dto.getContextId()
+                    );
+                }
+
+                return Map.of(
+                        "id", newDefinition != null ? newDefinition.getId() : deployment.getId(),
+                        "deploymentId", deployment.getId(),
+                        "key", newDefinition != null ? newDefinition.getKey() : processKey,
+                        "version", newDefinition != null ? newDefinition.getVersion() : 1,
+                        "message", "流程定义已更新"
+                );
+            } else {
+                // ============ 创建新流程定义 ============
+                logger.info("创建新流程定义: name={}, key={}", dto.getName(), processKey);
+
+                // 1. 更新 BPMN XML 中的流程属性
+                String updatedXml = updateBpmnXmlProcessAttributes(
+                        dto.getXml(),
+                        processKey,
+                        dto.getName()
+                );
+
+                // 2. 部署流程定义
+                String deploymentName = dto.getName() + ".bpmn20.xml";
+                org.flowable.engine.repository.Deployment deployment = repositoryService.createDeployment()
+                        .name(dto.getName())
+                        .addBytes(deploymentName, updatedXml.getBytes(StandardCharsets.UTF_8))
+                        .deploy();
+
+                // 3. 获取流程定义
+                ProcessDefinition definition = repositoryService.createProcessDefinitionQuery()
+                        .deploymentId(deployment.getId())
+                        .singleResult();
+
+                if (definition != null) {
+                    // 4. 暂停流程定义（使其处于草稿状态）
+                    repositoryService.suspendProcessDefinitionById(definition.getId());
+
+                    // 5. 保存分类关联
+                    saveOrUpdateProcessDefinitionExtension(
+                            definition.getId(),
+                            dto.getCategoryId(),
+                            dto.getTenantId(),
+                            dto.getAppId(),
+                            dto.getContextId()
+                    );
+                }
+
+                return Map.of(
+                        "id", definition != null ? definition.getId() : deployment.getId(),
+                        "deploymentId", deployment.getId(),
+                        "key", definition != null ? definition.getKey() : processKey,
+                        "version", definition != null ? definition.getVersion() : 1,
+                        "message", "流程定义已保存为草稿"
+                );
+            }
+        } catch (Exception e) {
+            logger.error("保存流程定义失败", e);
+            throw new RuntimeException("保存流程定义失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 更新 BPMN XML 中的流程属性（id 和 name）
+     */
+    private String updateBpmnXmlProcessAttributes(String bpmnXml, String processKey, String processName) {
+        try {
+            // 替换 <bpmn:process> 元素的 id 和 name 属性
+            String updatedXml = bpmnXml.replaceAll(
+                    "<bpmn:process[^>]*id=\"[^\"]*\"",
+                    "<bpmn:process id=\"" + processKey + "\""
+            );
+            updatedXml = updatedXml.replaceAll(
+                    "<bpmn:process[^>]*name=\"[^\"]*\"",
+                    "<bpmn:process name=\"" + processName + "\""
+            );
+            return updatedXml;
+        } catch (Exception e) {
+            logger.error("更新 BPMN XML 失败", e);
+            throw new RuntimeException("更新 BPMN XML 失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 保存或更新流程定义扩展（分类关联）
+     */
+    private void saveOrUpdateProcessDefinitionExtension(
+            String processDefinitionId,
+            String categoryId,
+            String tenantId,
+            String appId,
+            String contextId
+    ) {
+        try {
+            // 查询是否已存在扩展记录
+            ProcessDefinitionExtension existing = processDefinitionExtensionRepository
+                    .findByProcessDefinitionId(processDefinitionId);
+
+            if (existing != null) {
+                // 更新现有记录
+                existing.setCategoryId(categoryId);
+                existing.setTenantId(tenantId);
+                existing.setAppId(appId);
+                existing.setContextId(contextId);
+                existing.setUpdatedTime(LocalDateTime.now());
+                processDefinitionExtensionRepository.update(existing);
+                logger.info("更新流程定义扩展: processDefinitionId={}, categoryId={}",
+                        processDefinitionId, categoryId);
+            } else {
+                // 创建新记录
+                ProcessDefinitionExtension extension = ProcessDefinitionExtension.builder()
+                        .processDefinitionId(processDefinitionId)
+                        .categoryId(categoryId)
+                        .tenantId(tenantId)
+                        .appId(appId)
+                        .contextId(contextId)
+                        .createdTime(LocalDateTime.now())
+                        .updatedTime(LocalDateTime.now())
+                        .build();
+                processDefinitionExtensionRepository.save(extension);
+                logger.info("保存流程定义扩展: processDefinitionId={}, categoryId={}",
+                        processDefinitionId, categoryId);
+            }
+        } catch (Exception e) {
+            logger.error("保存流程定义扩展失败: processDefinitionId={}", processDefinitionId, e);
+            // 不抛出异常，避免影响主流程
+        }
+    }
+
+    /**
+     * 更新流程定义属性
+     * 只更新分类关联等扩展属性，不重新部署流程
+     */
+    @Transactional
+    public void updateProcessDefinition(ProcessDefinitionDTO dto) {
+        if (dto.getId() == null || dto.getId().isEmpty()) {
+            throw new IllegalArgumentException("流程定义ID不能为空");
+        }
+
+        try {
+            // 查询流程定义是否存在
+            ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                    .processDefinitionId(dto.getId())
+                    .singleResult();
+
+            if (processDefinition == null) {
+                throw new IllegalArgumentException("流程定义不存在: " + dto.getId());
+            }
+
+            // 更新分类关联
+            if (dto.getCategoryId() != null || dto.getName() != null || dto.getKey() != null) {
+                saveOrUpdateProcessDefinitionExtension(
+                        dto.getId(),
+                        dto.getCategoryId(),
+                        dto.getTenantId(),
+                        dto.getAppId(),
+                        dto.getContextId()
+                );
+            }
+
+            logger.info("流程定义属性已更新: id={}", dto.getId());
+        } catch (Exception e) {
+            logger.error("更新流程定义失败", e);
+            throw new RuntimeException("更新流程定义失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 激活流程定义
+     */
+    @Transactional
+    public void activateProcessDefinition(String processDefinitionId) {
+        try {
+            // 检查流程定义是否存在
+            ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                    .processDefinitionId(processDefinitionId)
+                    .singleResult();
+
+            if (processDefinition == null) {
+                throw new IllegalArgumentException("流程定义不存在: " + processDefinitionId);
+            }
+
+            // 激活流程定义
+            repositoryService.activateProcessDefinitionById(processDefinitionId);
+            logger.info("流程定义已激活: id={}, key={}", processDefinitionId, processDefinition.getKey());
+        } catch (Exception e) {
+            logger.error("激活流程定义失败: id={}", processDefinitionId, e);
+            throw new RuntimeException("激活流程定义失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 停用流程定义
+     */
+    @Transactional
+    public void suspendProcessDefinition(String processDefinitionId) {
+        try {
+            // 检查流程定义是否存在
+            ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                    .processDefinitionId(processDefinitionId)
+                    .singleResult();
+
+            if (processDefinition == null) {
+                throw new IllegalArgumentException("流程定义不存在: " + processDefinitionId);
+            }
+
+            // 停用流程定义
+            repositoryService.suspendProcessDefinitionById(processDefinitionId);
+            logger.info("流程定义已停用: id={}, key={}", processDefinitionId, processDefinition.getKey());
+        } catch (Exception e) {
+            logger.error("停用流程定义失败: id={}", processDefinitionId, e);
+            throw new RuntimeException("停用流程定义失败: " + e.getMessage(), e);
         }
     }
 }

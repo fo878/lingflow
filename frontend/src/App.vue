@@ -104,9 +104,10 @@ const fetchUnreadCount = async () => {
   try {
     const userId = 'user001' // 实际应从用户状态中获取
     const response = await getUnreadNotificationCount(userId)
-    unreadCount.value = response.data || 0
+    unreadCount.value = response.data.data || 0
   } catch (error) {
     console.error('获取未读通知数量失败', error)
+    unreadCount.value = 0
   }
 }
 

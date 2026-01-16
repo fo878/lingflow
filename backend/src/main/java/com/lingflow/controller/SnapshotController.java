@@ -3,7 +3,7 @@ package com.lingflow.controller;
 import com.lingflow.dto.CreateSnapshotRequest;
 import com.lingflow.dto.Result;
 import com.lingflow.entity.ProcessSnapshot;
-import com.lingflow.service.ProcessService;
+import com.lingflow.service.ProcessDefinitionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,7 +18,7 @@ import java.util.List;
 public class SnapshotController {
 
     @Autowired
-    private ProcessService processService;
+    private ProcessDefinitionService processDefinitionService;
 
     /**
      * 创建流程快照
@@ -28,7 +28,7 @@ public class SnapshotController {
     @PostMapping("/create")
     public Result<Void> createSnapshot(@RequestBody CreateSnapshotRequest request) {
         try {
-            processService.createProcessSnapshot(
+            processDefinitionService.createProcessSnapshot(
                 request.getProcessDefinitionKey(),
                 request.getSnapshotName(),
                 request.getDescription(),
@@ -48,7 +48,7 @@ public class SnapshotController {
     @GetMapping("/list/{processDefinitionKey}")
     public Result<List<ProcessSnapshot>> getSnapshots(@PathVariable("processDefinitionKey") String processDefinitionKey) {
         try {
-            List<ProcessSnapshot> snapshots = processService.getProcessSnapshots(processDefinitionKey);
+            List<ProcessSnapshot> snapshots = processDefinitionService.getProcessSnapshots(processDefinitionKey);
             return Result.success(snapshots);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -63,7 +63,7 @@ public class SnapshotController {
     @PostMapping("/rollback/{snapshotId}")
     public Result<Void> rollbackToSnapshot(@PathVariable("snapshotId") String snapshotId) {
         try {
-            processService.rollbackToSnapshot(snapshotId);
+            processDefinitionService.rollbackToSnapshot(snapshotId);
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -78,7 +78,7 @@ public class SnapshotController {
     @DeleteMapping("/{snapshotId}")
     public Result<Void> deleteSnapshot(@PathVariable("snapshotId") String snapshotId) {
         try {
-            processService.deleteSnapshot(snapshotId);
+            processDefinitionService.deleteSnapshot(snapshotId);
             return Result.success();
         } catch (Exception e) {
             return Result.error(e.getMessage());

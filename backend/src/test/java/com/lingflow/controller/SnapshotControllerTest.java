@@ -3,7 +3,7 @@ package com.lingflow.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lingflow.dto.CreateSnapshotRequest;
 import com.lingflow.entity.ProcessSnapshot;
-import com.lingflow.service.ProcessService;
+import com.lingflow.service.ProcessDefinitionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SnapshotControllerTest {
 
     @Mock
-    private ProcessService processService;
+    private ProcessDefinitionService processDefinitionService;
 
     @InjectMocks
     private SnapshotController controller;
@@ -46,7 +46,7 @@ class SnapshotControllerTest {
 
     @Test
     void testCreateSnapshot_Success() throws Exception {
-        doNothing().when(processService).createProcessSnapshot(
+        doNothing().when(processDefinitionService).createProcessSnapshot(
                 anyString(), anyString(), anyString(), anyString());
 
         CreateSnapshotRequest request = new CreateSnapshotRequest();
@@ -61,14 +61,14 @@ class SnapshotControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(processService, times(1)).createProcessSnapshot(
+        verify(processDefinitionService, times(1)).createProcessSnapshot(
                 "testProcess", "v1.0", "初始版本", "admin");
     }
 
     @Test
     void testCreateSnapshot_Exception() throws Exception {
         doThrow(new RuntimeException("快照名称已存在"))
-                .when(processService).createProcessSnapshot(
+                .when(processDefinitionService).createProcessSnapshot(
                         anyString(), anyString(), anyString(), anyString());
 
         CreateSnapshotRequest request = new CreateSnapshotRequest();
@@ -94,7 +94,7 @@ class SnapshotControllerTest {
         snapshot.setCreatedTime(LocalDateTime.now());
         snapshots.add(snapshot);
 
-        when(processService.getProcessSnapshots("testProcess")).thenReturn(snapshots);
+        when(processDefinitionService.getProcessSnapshots("testProcess")).thenReturn(snapshots);
 
         mockMvc.perform(get("/snapshot/list/testProcess"))
                 .andExpect(status().isOk())
@@ -102,67 +102,67 @@ class SnapshotControllerTest {
                 .andExpect(jsonPath("$.data[0].snapshotName").value("v1.0"))
                 .andExpect(jsonPath("$.data[0].snapshotVersion").value(1));
 
-        verify(processService, times(1)).getProcessSnapshots("testProcess");
+        verify(processDefinitionService, times(1)).getProcessSnapshots("testProcess");
     }
 
     @Test
     void testGetSnapshots_Empty() throws Exception {
         List<ProcessSnapshot> snapshots = new ArrayList<>();
-        when(processService.getProcessSnapshots("testProcess")).thenReturn(snapshots);
+        when(processDefinitionService.getProcessSnapshots("testProcess")).thenReturn(snapshots);
 
         mockMvc.perform(get("/snapshot/list/testProcess"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").isEmpty());
 
-        verify(processService, times(1)).getProcessSnapshots("testProcess");
+        verify(processDefinitionService, times(1)).getProcessSnapshots("testProcess");
     }
 
     @Test
     void testRollbackToSnapshot_Success() throws Exception {
-        doNothing().when(processService).rollbackToSnapshot(anyString());
+        doNothing().when(processDefinitionService).rollbackToSnapshot(anyString());
 
         mockMvc.perform(post("/snapshot/rollback/snapshot1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(processService, times(1)).rollbackToSnapshot("snapshot1");
+        verify(processDefinitionService, times(1)).rollbackToSnapshot("snapshot1");
     }
 
     @Test
     void testRollbackToSnapshot_NotFound() throws Exception {
         doThrow(new RuntimeException("快照不存在"))
-                .when(processService).rollbackToSnapshot(anyString());
+                .when(processDefinitionService).rollbackToSnapshot(anyString());
 
         mockMvc.perform(post("/snapshot/rollback/invalid-snapshot"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(500))
                 .andExpect(jsonPath("$.message").value("快照不存在"));
 
-        verify(processService, times(1)).rollbackToSnapshot("invalid-snapshot");
+        verify(processDefinitionService, times(1)).rollbackToSnapshot("invalid-snapshot");
     }
 
     @Test
     void testDeleteSnapshot_Success() throws Exception {
-        doNothing().when(processService).deleteSnapshot(anyString());
+        doNothing().when(processDefinitionService).deleteSnapshot(anyString());
 
         mockMvc.perform(delete("/snapshot/snapshot1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(processService, times(1)).deleteSnapshot("snapshot1");
+        verify(processDefinitionService, times(1)).deleteSnapshot("snapshot1");
     }
 
     @Test
     void testDeleteSnapshot_Exception() throws Exception {
         doThrow(new RuntimeException("删除快照失败"))
-                .when(processService).deleteSnapshot(anyString());
+                .when(processDefinitionService).deleteSnapshot(anyString());
 
         mockMvc.perform(delete("/snapshot/invalid-snapshot"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(500))
                 .andExpect(jsonPath("$.message").value("删除快照失败"));
 
-        verify(processService, times(1)).deleteSnapshot("invalid-snapshot");
+        verify(processDefinitionService, times(1)).deleteSnapshot("invalid-snapshot");
     }
 }

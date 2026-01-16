@@ -1,6 +1,5 @@
 package com.lingflow.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.lingflow.dto.*;
@@ -10,11 +9,9 @@ import com.lingflow.repository.BpmnElementExtensionRepository;
 import com.lingflow.repository.ProcessSnapshotRepository;
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.engine.*;
-import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.image.ProcessDiagramGenerator;
-import org.flowable.task.api.Task;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +22,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,7 +35,7 @@ import static org.mockito.Mockito.*;
  * ProcessService 单元测试
  */
 @ExtendWith(MockitoExtension.class)
-class ProcessServiceTest {
+class ProcessDefinitionServiceTest {
 
     @Mock
     private RepositoryService repositoryService;
@@ -78,21 +74,21 @@ class ProcessServiceTest {
     private BpmnElementExtensionRepository bpmnElementExtensionRepository;
 
     @InjectMocks
-    private ProcessService processService;
+    private ProcessDefinitionService processDefinitionService;
 
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        ReflectionTestUtils.setField(processService, "objectMapper", objectMapper);
+        ReflectionTestUtils.setField(processDefinitionService, "objectMapper", objectMapper);
     }
 
     @Test
     void testDeployProcess_Success() {
         doNothing().when(extendedRepositoryService).deploy(anyString(), anyString());
 
-        processService.deployProcess("测试流程", "<xml>content</xml>");
+        processDefinitionService.deployProcess("测试流程", "<xml>content</xml>");
 
         verify(extendedRepositoryService, times(1)).deploy("测试流程", "<xml>content</xml>");
     }
@@ -107,7 +103,7 @@ class ProcessServiceTest {
 
         when(extendedRepositoryService.getProcessDefinitions()).thenReturn(definitions);
 
-        List<ProcessDefinitionVO> result = processService.getProcessDefinitions();
+        List<ProcessDefinitionVO> result = processDefinitionService.getProcessDefinitions();
 
         assertNotNull(result);
         assertEquals(1, result.size());
@@ -119,7 +115,7 @@ class ProcessServiceTest {
     void testDeleteProcessDefinition_Success() {
         doNothing().when(extendedRepositoryService).deleteDeployment(anyString(), anyBoolean(), anyBoolean());
 
-        processService.deleteProcessDefinition("deployment1");
+        processDefinitionService.deleteProcessDefinition("deployment1");
 
         verify(extendedRepositoryService, times(1)).deleteDeployment("deployment1", true, false);
     }
@@ -133,7 +129,7 @@ class ProcessServiceTest {
         when(extendedRuntimeService.startProcessInstanceByKey(anyString(), anyString(), isNull()))
                 .thenReturn(instance);
 
-        ProcessInstanceVO result = processService.startProcess("testProcess", "business1");
+        ProcessInstanceVO result = processDefinitionService.startProcess("testProcess", "business1");
 
         assertNotNull(result);
         assertEquals("process1", result.getId());
@@ -149,7 +145,7 @@ class ProcessServiceTest {
 
         when(extendedRuntimeService.getRunningProcessInstances()).thenReturn(instances);
 
-        List<ProcessInstanceVO> result = processService.getRunningInstances();
+        List<ProcessInstanceVO> result = processDefinitionService.getRunningInstances();
 
         assertNotNull(result);
         assertEquals(1, result.size());
@@ -161,7 +157,7 @@ class ProcessServiceTest {
         List<ProcessInstanceVO> instances = new ArrayList<>();
         when(extendedHistoryService.getCompletedProcessInstances()).thenReturn(instances);
 
-        List<ProcessInstanceVO> result = processService.getCompletedInstances();
+        List<ProcessInstanceVO> result = processDefinitionService.getCompletedInstances();
 
         assertNotNull(result);
         verify(extendedHistoryService, times(1)).getCompletedProcessInstances();
@@ -177,7 +173,7 @@ class ProcessServiceTest {
 
         when(extendedTaskService.getTasks()).thenReturn(tasks);
 
-        List<TaskVO> result = processService.getTasks();
+        List<TaskVO> result = processDefinitionService.getTasks();
 
         assertNotNull(result);
         assertEquals(1, result.size());
@@ -192,7 +188,7 @@ class ProcessServiceTest {
 
         doNothing().when(extendedTaskService).completeTask(anyString(), anyMap());
 
-        processService.completeTask("task1", variables);
+        processDefinitionService.completeTask("task1", variables);
 
         verify(extendedTaskService, times(1)).completeTask("task1", variables);
     }
@@ -223,7 +219,7 @@ class ProcessServiceTest {
         when(diagramGenerator.generateDiagram(eq(bpmnModel), eq("png"), anyList(), anyList(),
                 anyString(), anyString(), anyString(), any(), anyDouble(), anyBoolean())).thenReturn(inputStream);
 
-        byte[] result = processService.generateDiagram("process1");
+        byte[] result = processDefinitionService.generateDiagram("process1");
 
         assertNotNull(result);
         assertEquals(5, result.length);
@@ -240,7 +236,7 @@ class ProcessServiceTest {
         when(historyService.createHistoricProcessInstanceQuery().processInstanceId("invalid-process").singleResult()).thenReturn(null);
 
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            processService.generateDiagram("invalid-process");
+            processDefinitionService.generateDiagram("invalid-process");
         });
 
         assertEquals("流程实例不存在", exception.getMessage());
@@ -253,7 +249,7 @@ class ProcessServiceTest {
 
         when(bpmnElementExtensionRepository.findByProcessAndElement("def1", "element1")).thenReturn(null);
 
-        processService.saveElementExtension("def1", "element1", "userTask", extensionAttrs);
+        processDefinitionService.saveElementExtension("def1", "element1", "userTask", extensionAttrs);
 
         verify(bpmnElementExtensionRepository, times(1)).save(any());
         verify(bpmnElementExtensionRepository, times(1)).saveHistory(any());
@@ -270,7 +266,7 @@ class ProcessServiceTest {
 
         when(bpmnElementExtensionRepository.findByProcessAndElement("def1", "element1")).thenReturn(existing);
 
-        processService.saveElementExtension("def1", "element1", "userTask", extensionAttrs);
+        processDefinitionService.saveElementExtension("def1", "element1", "userTask", extensionAttrs);
 
         verify(bpmnElementExtensionRepository, times(1)).update(any());
         verify(bpmnElementExtensionRepository, times(1)).saveHistory(any());
@@ -285,7 +281,7 @@ class ProcessServiceTest {
 
         when(bpmnElementExtensionRepository.findByProcessAndElement("def1", "element1")).thenReturn(extension);
 
-        ElementExtensionQueryResult result = processService.getElementExtension("def1", "element1");
+        ElementExtensionQueryResult result = processDefinitionService.getElementExtension("def1", "element1");
 
         assertNotNull(result);
         assertTrue(result.isExists());
@@ -297,7 +293,7 @@ class ProcessServiceTest {
     void testGetElementExtension_NotExists() {
         when(bpmnElementExtensionRepository.findByProcessAndElement("def1", "element1")).thenReturn(null);
 
-        ElementExtensionQueryResult result = processService.getElementExtension("def1", "element1");
+        ElementExtensionQueryResult result = processDefinitionService.getElementExtension("def1", "element1");
 
         assertNotNull(result);
         assertFalse(result.isExists());
@@ -312,7 +308,7 @@ class ProcessServiceTest {
 
         when(bpmnElementExtensionRepository.findByProcessAndElement("def1", "element1")).thenReturn(existing);
 
-        processService.deleteElementExtension("def1", "element1");
+        processDefinitionService.deleteElementExtension("def1", "element1");
 
         verify(bpmnElementExtensionRepository, times(1)).saveHistory(any());
         verify(bpmnElementExtensionRepository, times(1)).deleteByProcessAndElement("def1", "element1");
@@ -335,7 +331,7 @@ class ProcessServiceTest {
 
         when(processSnapshotRepository.findByProcessDefinitionKey("testProcess")).thenReturn(new ArrayList<>());
 
-        processService.createProcessSnapshot("testProcess", "v1.0", "初始版本", "admin");
+        processDefinitionService.createProcessSnapshot("testProcess", "v1.0", "初始版本", "admin");
 
         verify(processSnapshotRepository, times(1)).save(any(ProcessSnapshot.class));
     }
@@ -361,7 +357,7 @@ class ProcessServiceTest {
         when(processSnapshotRepository.findByProcessDefinitionKey("testProcess")).thenReturn(List.of(existingSnapshot));
 
         assertThrows(RuntimeException.class, () -> {
-            processService.createProcessSnapshot("testProcess", "v1.0", "初始版本", "admin");
+            processDefinitionService.createProcessSnapshot("testProcess", "v1.0", "初始版本", "admin");
         });
     }
 
@@ -376,7 +372,7 @@ class ProcessServiceTest {
 
         doNothing().when(extendedRepositoryService).deploy(anyString(), anyString());
 
-        processService.rollbackToSnapshot("snapshot1");
+        processDefinitionService.rollbackToSnapshot("snapshot1");
 
         verify(extendedRepositoryService, times(1)).deploy(contains("v1.0_rollback_"), eq("<xml>content</xml>"));
     }
@@ -385,7 +381,7 @@ class ProcessServiceTest {
     void testDeleteSnapshot_Success() {
         doNothing().when(processSnapshotRepository).deleteById(anyString());
 
-        processService.deleteSnapshot("snapshot1");
+        processDefinitionService.deleteSnapshot("snapshot1");
 
         verify(processSnapshotRepository, times(1)).deleteById("snapshot1");
     }

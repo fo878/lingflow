@@ -240,7 +240,7 @@ package com.lingflow.controller;
 
 import com.lingflow.dto.Result;
 import com.lingflow.entity.ProcessSnapshot;
-import com.lingflow.service.ProcessService;
+import com.lingflow.service.ProcessDefinitionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
