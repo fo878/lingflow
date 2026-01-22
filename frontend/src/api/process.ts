@@ -1,6 +1,13 @@
 import request from './index'
+import type {
+  CreateDraftTemplateRequest,
+  UpdateDraftTemplateRequest,
+  CreateTemplateSnapshotRequest,
+  RestoreSnapshotRequest,
+  TemplateStatus
+} from '@/types/process'
 
-// ==================== 流程定义管理接口 ====================
+// ==================== 流程定义管理接口（已弃用，建议使用模板管理接口） ====================
 
 /**
  * 保存流程定义（草稿状态）
@@ -111,26 +118,156 @@ export const getProcessBpmn = (processInstanceId: string) => {
   return request.get(`/process/bpmn/${processInstanceId}`)
 }
 
-// 快照相关接口
-export const createProcessSnapshot = (data: { 
-  processDefinitionKey: string; 
-  snapshotName: string; 
-  description?: string; 
-  creator?: string 
+// ==================== 流程模板管理接口（新系统） ====================
+
+// ============ 设计态模板管理 ============
+
+/**
+ * 创建设计态模板
+ */
+export const createDraftTemplate = (data: {
+  templateKey: string
+  templateName: string
+  description?: string
+  bpmnXml: string
+  categoryId: string
+  tags?: string[]
+  formConfig?: any
+  appId?: string
+  contextId?: string
+  tenantId: string
 }) => {
-  return request.post('/snapshot/create', data)
+  return request.post('/api/process/template/draft', data)
 }
 
-export const getProcessSnapshots = (processDefinitionKey: string) => {
-  return request.get(`/snapshot/list/${processDefinitionKey}`)
+/**
+ * 更新设计态模板
+ */
+export const updateDraftTemplate = (id: string, data: {
+  templateName: string
+  description?: string
+  bpmnXml: string
+  categoryId?: string
+  tags?: string[]
+  formConfig?: any
+}) => {
+  return request.put(`/api/process/template/draft/${id}`, data)
 }
 
-export const rollbackToSnapshot = (snapshotId: string) => {
-  return request.post(`/snapshot/rollback/${snapshotId}`)
+/**
+ * 查询设计态模板
+ */
+export const getDraftTemplate = (id: string) => {
+  return request.get(`/api/process/template/draft/${id}`)
 }
 
-export const deleteSnapshot = (snapshotId: string) => {
-  return request.delete(`/snapshot/${snapshotId}`)
+/**
+ * 删除设计态模板
+ */
+export const deleteDraftTemplate = (id: string) => {
+  return request.delete(`/api/process/template/draft/${id}`)
+}
+
+/**
+ * 查询设计态模板列表
+ */
+export const listDraftTemplates = (params: {
+  tenantId: string
+  appId?: string
+  contextId?: string
+  categoryId?: string
+  keyword?: string
+  offset?: number
+  limit?: number
+}) => {
+  return request.get('/api/process/template/draft', { params })
+}
+
+// ============ 发布态模板管理 ============
+
+/**
+ * 发布模板（设计态 → 发布态）
+ */
+export const publishTemplate = (draftId: string) => {
+  return request.post(`/api/process/template/draft/${draftId}/publish`)
+}
+
+/**
+ * 停用模板（激活态 → 停用态）
+ */
+export const suspendTemplate = (publishedId: string) => {
+  return request.post(`/api/process/template/published/${publishedId}/suspend`)
+}
+
+/**
+ * 激活模板（停用态 → 激活态）
+ */
+export const activateTemplate = (publishedId: string) => {
+  return request.post(`/api/process/template/published/${publishedId}/activate`)
+}
+
+/**
+ * 查询发布态模板
+ */
+export const getPublishedTemplate = (id: string) => {
+  return request.get(`/api/process/template/published/${id}`)
+}
+
+/**
+ * 查询发布态模板列表
+ */
+export const listPublishedTemplates = (params: {
+  tenantId: string
+  appId?: string
+  contextId?: string
+  categoryId?: string
+  status?: 'ACTIVE' | 'INACTIVE'
+  keyword?: string
+  offset?: number
+  limit?: number
+}) => {
+  return request.get('/api/process/template/published', { params })
+}
+
+// ============ 快照管理（新系统） ============
+
+/**
+ * 创建模板快照
+ */
+export const createTemplateSnapshot = (data: {
+  sourceTemplateId: string
+  sourceTemplateType: 'DRAFT' | 'PUBLISHED'
+  snapshotName: string
+}) => {
+  return request.post('/api/process/template/snapshot', data)
+}
+
+/**
+ * 查询模板快照列表
+ */
+export const listTemplateSnapshots = (templateKey: string, params: {
+  tenantId: string
+  appId?: string
+  contextId?: string
+}) => {
+  return request.get(`/api/process/template/snapshot/${templateKey}`, { params })
+}
+
+/**
+ * 从快照恢复到设计态
+ */
+export const restoreFromSnapshot = (data: {
+  snapshotId: string
+  newTemplateName?: string
+}) => {
+  return request.post('/api/process/template/snapshot/restore', data)
+}
+
+/**
+ * 删除模板快照
+ */
+export const deleteTemplateSnapshot = (snapshotId: string) => {
+  return request.delete(`/api/process/template/snapshot/${snapshotId}`)
 }
 
 // BPMN元素扩展属性相关接口

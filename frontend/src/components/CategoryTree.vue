@@ -6,6 +6,7 @@
       :props="treeProps"
       node-key="id"
       :default-expand-all="false"
+      :default-expanded-keys="expandedKeys"
       :expand-on-click-node="false"
       :highlight-current="true"
       :allow-drop="allowDrop"
@@ -67,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
@@ -97,6 +98,46 @@ const treeProps = {
   children: 'children',
   label: 'name'
 }
+
+/**
+ * 递归收集 1-3 级节点的 ID
+ * @param nodes 树节点数组
+ * @param level 当前层级（从 1 开始）
+ * @param maxLevel 最大展开层级
+ * @returns 展开的节点 ID 数组
+ */
+const collectNodeKeysByLevel = (
+  nodes: ProcessCategoryTree[],
+  level: number = 1,
+  maxLevel: number = 3
+): string[] => {
+  const keys: string[] = []
+
+  for (const node of nodes) {
+    // 如果当前层级在最大展开层级内，收集该节点的 ID
+    if (level <= maxLevel && node.id) {
+      keys.push(node.id)
+    }
+
+    // 递归处理子节点
+    if (node.children && node.children.length > 0) {
+      const childKeys = collectNodeKeysByLevel(node.children, level + 1, maxLevel)
+      keys.push(...childKeys)
+    }
+  }
+
+  return keys
+}
+
+/**
+ * 计算需要默认展开的节点 keys（1-3 级）
+ */
+const expandedKeys = computed(() => {
+  if (!props.data || props.data.length === 0) {
+    return []
+  }
+  return collectNodeKeysByLevel(props.data, 1, 3)
+})
 
 // 拖拽相关
 const allowDrop = (draggingNode: any, dropNode: any, type: NodeDropType) => {

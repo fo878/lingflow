@@ -17,15 +17,84 @@ LingFlow 是一个基于 bpmn.js + Vue3 + Spring Boot + Flowable 的流程管理
 ```bash
 cd /data/lingflow/backend
 
-# 构建并运行测试
+# 标准构建命令（编译、打包到本地仓库）
 mvn clean install
+
+# 跳过测试的快速构建（开发推荐）
+mvn clean install -DskipTests
+
+# 运行测试
 mvn test
 
 # 运行应用（启动在 8080 端口）
 mvn spring-boot:run
 
-# 打包部署
+# 仅打包（不安装到本地仓库）
 mvn clean package
+
+# IDEA 内置 Maven 命令（完整路径）
+/opt/idea/idea-IU-253.29346.138/plugins/maven/lib/maven3/bin/mvn \
+  -Didea.version=2025.3.1 \
+  -Dmaven.ext.class.path=/opt/idea/idea-IU-253.29346.138/plugins/maven/lib/maven-event-listener.jar \
+  -Djansi.passthrough=true \
+  -Dstyle.color=always \
+  -DskipTests=true \
+  -Dmaven.repo.local=/home/liuyohao/.m2/repository \
+  install \
+  -f pom.xml
+```
+
+**IDEA Maven 命令参数说明**：
+- `-Didea.version`: IDEA 版本号
+- `-Dmaven.ext.class.path`: Maven 扩展监听器路径
+- `-Djansi.passthrough=true`: ANSI 颜色输出透传
+- `-Dstyle.color=always`: 始终启用彩色输出
+- `-DskipTests=true`: 跳过测试执行（加速构建）
+- `-Dmaven.repo.local`: 本地 Maven 仓库路径
+- `-f pom.xml`: 指定 POM 文件
+
+### 后端代码变更工作流
+
+**重要**：每次修改后端代码后，必须执行以下工作流直到构建成功：
+
+1. **执行构建**
+   ```bash
+   cd /data/lingflow/backend
+   mvn clean install -DskipTests
+   ```
+
+2. **分析编译错误**
+   - 如果构建失败，仔细阅读 Maven 输出的错误信息
+   - 识别错误类型：编译错误、依赖冲突、类型不匹配等
+
+3. **修复编译错误**
+   - 根据错误信息定位问题文件和行号
+   - 修复代码中的错误
+   - 常见问题：
+     - 缺少依赖：在 `pom.xml` 中添加依赖
+     - 类型错误：修正变量类型、方法签名
+     - 导入错误：添加正确的 import 语句
+     - 注解错误：检查注解使用是否正确
+
+4. **重新构建验证**
+   ```bash
+   mvn clean install -DskipTests
+   ```
+
+5. **循环直到成功**
+   - 如果仍然失败，重复步骤 2-4
+   - 直到看到 `BUILD SUCCESS` 消息
+
+6. **可选：运行测试**
+   ```bash
+   mvn test
+   ```
+
+**构建成功的标志**：
+```
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
 ```
 
 ### 前端 (Vue 3 + Vite)

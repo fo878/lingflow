@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingflow.repository.ProcessTemplateSnapshotRepository">
+
+    <resultMap id="ProcessTemplateSnapshotResultMap" type="com.lingflow.entity.ProcessTemplateSnapshot">
+        <id property="id" column="id"/>
+        <result property="templateKey" column="template_key"/>
+        <result property="snapshotName" column="snapshot_name"/>
+        <result property="bpmnXml" column="bpmn_xml"/>
+        <result property="sourceTemplateId" column="source_template_id"/>
+        <result property="sourceTemplateStatus" column="source_template_status"/>
+        <result property="sourceTemplateVersion" column="source_template_version"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="categoryCode" column="category_code"/>
+        <result property="tags" column="tags"/>
+        <result property="formConfig" column="form_config"/>
+        <result property="appId" column="app_id"/>
+        <result property="contextId" column="context_id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="snapshotVersion" column="snapshot_version"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="createdBy" column="created_by"/>
+    </resultMap>
+
+    <!-- 根据ID查询快照 -->
+    <select id="findById" resultMap="ProcessTemplateSnapshotResultMap">
+        SELECT * FROM process_template_snapshot
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据模板Key查询快照列表（多租户） -->
+    <select id="findByTemplateKey" resultMap="ProcessTemplateSnapshotResultMap">
+        SELECT * FROM process_template_snapshot
+        WHERE template_key = #{templateKey}
+          AND tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR context_id = #{contextId,jdbcType=VARCHAR})
+        ORDER BY snapshot_version DESC, created_time DESC
+    </select>
+
+    <!-- 查询所有快照（多租户） -->
+    <select id="findAll" resultMap="ProcessTemplateSnapshotResultMap">
+        SELECT * FROM process_template_snapshot
+        WHERE tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR context_id = #{contextId,jdbcType=VARCHAR})
+        ORDER BY created_time DESC
+    </select>
+
+    <!-- 根据来源模板ID查询快照列表 -->
+    <select id="findBySourceTemplateId" resultMap="ProcessTemplateSnapshotResultMap">
+        SELECT * FROM process_template_snapshot
+        WHERE source_template_id = #{sourceTemplateId}
+        ORDER BY created_time DESC
+    </select>
+
+    <!-- 根据快照名称搜索快照（模糊搜索，多租户） -->
+    <select id="searchByName" resultMap="ProcessTemplateSnapshotResultMap">
+        SELECT * FROM process_template_snapshot
+        WHERE tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR context_id = #{contextId,jdbcType=VARCHAR})
+          AND snapshot_name LIKE CONCAT('%', #{snapshotName}, '%')
+        ORDER BY created_time DESC
+    </select>
+
+    <!-- 分页查询快照（多租户） -->
+    <select id="findByPage" resultMap="ProcessTemplateSnapshotResultMap">
+        SELECT * FROM process_template_snapshot
+        WHERE tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR context_id = #{contextId,jdbcType=VARCHAR})
+          <if test="templateKey != null and templateKey != ''">
+              AND template_key = #{templateKey}
+          </if>
+        ORDER BY created_time DESC
+        <if test="offset != null and limit != null">
+            OFFSET #{offset} LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 统计快照数量（多租户） -->
+    <select id="countByCondition" resultType="int">
+        SELECT COUNT(*)
+        FROM process_template_snapshot
+        WHERE tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR context_id = #{contextId,jdbcType=VARCHAR})
+          <if test="templateKey != null and templateKey != ''">
+              AND template_key = #{templateKey}
+          </if>
+    </select>
+
+    <!-- 保存快照 -->
+    <insert id="save" parameterType="com.lingflow.entity.ProcessTemplateSnapshot">
+        INSERT INTO process_template_snapshot (
+            id, template_key, snapshot_name, bpmn_xml,
+            source_template_id, source_template_status, source_template_version,
+            category_id, category_name, category_code,
+            tags, form_config, app_id, context_id, tenant_id,
+            snapshot_version, created_time, created_by
+        ) VALUES (
+            #{id}, #{templateKey}, #{snapshotName}, #{bpmnXml},
+            #{sourceTemplateId}, #{sourceTemplateStatus}, #{sourceTemplateVersion},
+            #{categoryId}, #{categoryName}, #{categoryCode},
+            #{tags}::jsonb, #{formConfig}::jsonb, #{appId}, #{contextId}, #{tenantId},
+            #{snapshotVersion}, #{createdTime}, #{createdBy}
+        )
+    </insert>
+
+    <!-- 删除快照 -->
+    <delete id="delete">
+        DELETE FROM process_template_snapshot
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 获取下一个快照版本号 -->
+    <select id="getNextSnapshotVersion" resultType="int">
+        SELECT COALESCE(MAX(snapshot_version), 0) + 1
+        FROM process_template_snapshot
+        WHERE template_key = #{templateKey}
+          AND tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR context_id = #{contextId,jdbcType=VARCHAR})
+    </select>
+
+</mapper>

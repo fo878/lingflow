@@ -99,9 +99,12 @@
                 <configuration>
                     <source>17</source>
                     <target>17</target>
+                    <release>17</release>
                     <compilerArgs>
                         <arg>-parameters</arg>
                     </compilerArgs>
+                    <fork>true</fork>
+                    <executable>/usr/lib/jvm/java-17-openjdk/bin/javac</executable>
                 </configuration>
             </plugin>
             <plugin>

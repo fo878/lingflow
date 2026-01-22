@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingflow.repository.ProcessTemplateDraftRepository">
+
+    <resultMap id="ProcessTemplateDraftResultMap" type="com.lingflow.entity.ProcessTemplateDraft">
+        <id property="id" column="id"/>
+        <result property="templateKey" column="template_key"/>
+        <result property="templateName" column="template_name"/>
+        <result property="description" column="description"/>
+        <result property="bpmnXml" column="bpmn_xml"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="tags" column="tags"/>
+        <result property="formConfig" column="form_config"/>
+        <result property="appId" column="app_id"/>
+        <result property="contextId" column="context_id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="status" column="status"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="updatedTime" column="updated_time"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <!-- 根据ID查询设计态模板 -->
+    <select id="findById" resultMap="ProcessTemplateDraftResultMap">
+        SELECT ptd.*,
+               pc.name AS category_name,
+               pc.code AS category_code
+        FROM process_template_draft ptd
+        LEFT JOIN process_category pc ON ptd.category_id = pc.id
+        WHERE ptd.id = #{id}
+    </select>
+
+    <!-- 根据模板Key查询设计态模板（多租户） -->
+    <select id="findByTemplateKey" resultMap="ProcessTemplateDraftResultMap">
+        SELECT ptd.*,
+               pc.name AS category_name,
+               pc.code AS category_code
+        FROM process_template_draft ptd
+        LEFT JOIN process_category pc ON ptd.category_id = pc.id
+        WHERE ptd.template_key = #{templateKey}
+          AND ptd.tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR ptd.app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR ptd.context_id = #{contextId,jdbcType=VARCHAR})
+    </select>
+
+    <!-- 查询所有设计态模板（多租户） -->
+    <select id="findAll" resultMap="ProcessTemplateDraftResultMap">
+        SELECT ptd.*,
+               pc.name AS category_name,
+               pc.code AS category_code
+        FROM process_template_draft ptd
+        LEFT JOIN process_category pc ON ptd.category_id = pc.id
+        WHERE ptd.tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR ptd.app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR ptd.context_id = #{contextId,jdbcType=VARCHAR})
+        ORDER BY ptd.updated_time DESC
+    </select>
+
+    <!-- 根据分类ID查询设计态模板列表（多租户） -->
+    <select id="findByCategoryId" resultMap="ProcessTemplateDraftResultMap">
+        SELECT ptd.*,
+               pc.name AS category_name,
+               pc.code AS category_code
+        FROM process_template_draft ptd
+        LEFT JOIN process_category pc ON ptd.category_id = pc.id
+        WHERE ptd.category_id = #{categoryId}
+          AND ptd.tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR ptd.app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR ptd.context_id = #{contextId,jdbcType=VARCHAR})
+        ORDER BY ptd.updated_time DESC
+    </select>
+
+    <!-- 根据名称或描述搜索设计态模板（模糊搜索，多租户） -->
+    <select id="searchByKeyword" resultMap="ProcessTemplateDraftResultMap">
+        SELECT ptd.*,
+               pc.name AS category_name,
+               pc.code AS category_code
+        FROM process_template_draft ptd
+        LEFT JOIN process_category pc ON ptd.category_id = pc.id
+        WHERE ptd.tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR ptd.app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR ptd.context_id = #{contextId,jdbcType=VARCHAR})
+          AND (ptd.template_name LIKE CONCAT('%', #{keyword}, '%')
+               OR ptd.description LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY ptd.updated_time DESC
+    </select>
+
+    <!-- 根据标签搜索设计态模板（多租户） -->
+    <select id="searchByTag" resultMap="ProcessTemplateDraftResultMap">
+        SELECT ptd.*,
+               pc.name AS category_name,
+               pc.code AS category_code
+        FROM process_template_draft ptd
+        LEFT JOIN process_category pc ON ptd.category_id = pc.id
+        WHERE ptd.tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR ptd.app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR ptd.context_id = #{contextId,jdbcType=VARCHAR})
+          AND ptd.tags::text LIKE CONCAT('%', #{tag}, '%')
+        ORDER BY ptd.updated_time DESC
+    </select>
+
+    <!-- 分页查询设计态模板（多租户） -->
+    <select id="findByPage" resultMap="ProcessTemplateDraftResultMap">
+        SELECT ptd.*,
+               pc.name AS category_name,
+               pc.code AS category_code
+        FROM process_template_draft ptd
+        LEFT JOIN process_category pc ON ptd.category_id = pc.id
+        WHERE ptd.tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR ptd.app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR ptd.context_id = #{contextId,jdbcType=VARCHAR})
+          <if test="categoryId != null and categoryId != ''">
+              AND ptd.category_id = #{categoryId}
+          </if>
+          <if test="keyword != null and keyword != ''">
+              AND (ptd.template_name LIKE CONCAT('%', #{keyword}, '%')
+                   OR ptd.description LIKE CONCAT('%', #{keyword}, '%'))
+          </if>
+        ORDER BY ptd.updated_time DESC
+        <if test="offset != null and limit != null">
+            OFFSET #{offset} LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 统计设计态模板数量（多租户） -->
+    <select id="countByCondition" resultType="int">
+        SELECT COUNT(*)
+        FROM process_template_draft ptd
+        WHERE ptd.tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR ptd.app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR ptd.context_id = #{contextId,jdbcType=VARCHAR})
+          <if test="categoryId != null and categoryId != ''">
+              AND ptd.category_id = #{categoryId}
+          </if>
+          <if test="keyword != null and keyword != ''">
+              AND (ptd.template_name LIKE CONCAT('%', #{keyword}, '%')
+                   OR ptd.description LIKE CONCAT('%', #{keyword}, '%'))
+          </if>
+    </select>
+
+    <!-- 保存设计态模板 -->
+    <insert id="save" parameterType="com.lingflow.entity.ProcessTemplateDraft">
+        INSERT INTO process_template_draft (
+            id, template_key, template_name, description, bpmn_xml, category_id,
+            tags, form_config, app_id, context_id, tenant_id, status,
+            created_time, updated_time, created_by, updated_by, version
+        ) VALUES (
+            #{id}, #{templateKey}, #{templateName}, #{description}, #{bpmnXml}, #{categoryId},
+            #{tags}::jsonb, #{formConfig}::jsonb, #{appId}, #{contextId}, #{tenantId}, #{status},
+            #{createdTime}, #{updatedTime}, #{createdBy}, #{updatedBy}, #{version}
+        )
+    </insert>
+
+    <!-- 更新设计态模板 -->
+    <update id="update" parameterType="com.lingflow.entity.ProcessTemplateDraft">
+        UPDATE process_template_draft
+        SET template_name = #{templateName},
+            description = #{description},
+            bpmn_xml = #{bpmnXml},
+            category_id = #{categoryId},
+            tags = #{tags}::jsonb,
+            form_config = #{formConfig}::jsonb,
+            updated_time = #{updatedTime},
+            updated_by = #{updatedBy},
+            version = version + 1
+        WHERE id = #{id}
+          AND version = #{version}
+    </update>
+
+    <!-- 删除设计态模板 -->
+    <delete id="delete">
+        DELETE FROM process_template_draft
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 检查模板Key是否存在 -->
+    <select id="countByTemplateKey" resultType="int">
+        SELECT COUNT(*) FROM process_template_draft
+        WHERE template_key = #{templateKey}
+          AND tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR context_id = #{contextId,jdbcType=VARCHAR})
+    </select>
+
+    <!-- 检查模板Key是否存在（排除指定ID） -->
+    <select id="countByTemplateKeyExcludeId" resultType="int">
+        SELECT COUNT(*) FROM process_template_draft
+        WHERE template_key = #{templateKey}
+          AND tenant_id = #{tenantId}
+          AND (#{appId,jdbcType=VARCHAR} IS NULL OR app_id = #{appId,jdbcType=VARCHAR})
+          AND (#{contextId,jdbcType=VARCHAR} IS NULL OR context_id = #{contextId,jdbcType=VARCHAR})
+          AND id != #{excludeId}
+    </select>
+
+</mapper>

@@ -71,66 +71,96 @@
           </template>
 
           <el-table
-            :data="filteredProcessDefinitions"
+            :data="filteredTemplates"
             stripe
             style="width: 100%"
             class="custom-table"
             @row-dblclick="handleEdit"
             :row-class-name="getRowClassName"
           >
-            <el-table-column prop="name" label="流程名称" width="200">
+            <el-table-column prop="templateName" label="流程名称" width="200">
               <template #default="scope">
                 <div class="process-name-cell">
                   <el-icon><Document /></el-icon>
-                  <span>{{ scope.row.name }}</span>
+                  <span>{{ scope.row.templateName }}</span>
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="key" label="流程Key" width="180" />
+            <el-table-column prop="templateKey" label="流程Key" width="180" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="scope">
+                <el-tag :type="getStatusType(scope.row.status)">
+                  {{ getStatusText(scope.row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column prop="version" label="版本" width="80">
               <template #default="scope">
                 <el-tag type="info" size="small">v{{ scope.row.version }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="deploymentId" label="部署ID" width="200" show-overflow-tooltip />
+            <el-table-column prop="runningInstanceCount" label="运行实例" width="100">
+              <template #default="scope">
+                <span v-if="scope.row.runningInstanceCount !== undefined">
+                  {{ scope.row.runningInstanceCount }}
+                </span>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="250" fixed="right">
               <template #default="scope">
                 <div class="action-buttons">
-                  <el-button
-                    size="small"
-                    type="primary"
-                    @click="handleEdit(scope.row)"
-                    class="btn-edit"
-                  >
-                    <el-icon><EditPen /></el-icon>
-                    编辑
-                  </el-button>
-                  <el-button
-                    size="small"
-                    type="success"
-                    @click="handleStart(scope.row)"
-                    class="btn-start"
-                  >
-                    <el-icon><VideoPlay /></el-icon>
-                    启动
-                  </el-button>
-                  <el-button
-                    size="small"
-                    type="danger"
-                    @click="handleDelete(scope.row)"
-                    class="btn-delete"
-                  >
-                    <el-icon><Delete /></el-icon>
-                    删除
-                  </el-button>
+                  <!-- 设计态：编辑、发布、删除 -->
+                  <template v-if="scope.row.status === 'DRAFT'">
+                    <el-button size="small" type="primary" @click="handleEdit(scope.row)">
+                      <el-icon><EditPen /></el-icon>
+                      编辑
+                    </el-button>
+                    <el-button size="small" type="success" @click="handlePublish(scope.row)">
+                      <el-icon><Upload /></el-icon>
+                      发布
+                    </el-button>
+                    <el-button size="small" type="danger" @click="handleDelete(scope.row)">
+                      <el-icon><Delete /></el-icon>
+                      删除
+                    </el-button>
+                  </template>
+
+                  <!-- 激活态：查看、停用 -->
+                  <template v-else-if="scope.row.status === 'ACTIVE'">
+                    <el-button size="small" type="primary" @click="handleView(scope.row)">
+                      <el-icon><View /></el-icon>
+                      查看
+                    </el-button>
+                    <el-button size="small" type="warning" @click="handleSuspend(scope.row)">
+                      <el-icon><VideoPause /></el-icon>
+                      停用
+                    </el-button>
+                    <el-button size="small" type="success" @click="handleStart(scope.row)">
+                      <el-icon><VideoPlay /></el-icon>
+                      启动
+                    </el-button>
+                  </template>
+
+                  <!-- 停用态：查看、激活 -->
+                  <template v-else-if="scope.row.status === 'INACTIVE'">
+                    <el-button size="small" type="primary" @click="handleView(scope.row)">
+                      <el-icon><View /></el-icon>
+                      查看
+                    </el-button>
+                    <el-button size="small" type="success" @click="handleActivate(scope.row)">
+                      <el-icon><VideoPlay /></el-icon>
+                      激活
+                    </el-button>
+                  </template>
                 </div>
               </template>
             </el-table-column>
           </el-table>
 
-          <template #footer v-if="filteredProcessDefinitions.length === 0">
+          <template #footer v-if="filteredTemplates.length === 0">
             <div class="empty-state">
-              <el-empty description="暂无流程定义" />
+              <el-empty description="暂无流程模板" />
             </div>
           </template>
         </el-card>
@@ -174,8 +204,12 @@ import { ref, onMounted, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  getProcessDefinitions,
-  deleteProcessDefinition,
+  listDraftTemplates,
+  listPublishedTemplates,
+  deleteDraftTemplate,
+  publishTemplate,
+  suspendTemplate,
+  activateTemplate,
   startProcess
 } from '@/api/process'
 import {
@@ -183,21 +217,29 @@ import {
   deleteCategory
 } from '@/api/processCategory'
 import type { ProcessCategoryTree } from '@/api/processCategory'
-import { EditPen, Delete, VideoPlay, Plus, Refresh, Search, Document, Setting } from '@element-plus/icons-vue'
+import type { TemplateView, TemplateStatus } from '@/types/process'
+import {
+  EditPen,
+  Delete,
+  VideoPlay,
+  VideoPause,
+  View,
+  Upload,
+  Plus,
+  Refresh,
+  Search,
+  Document,
+  Setting
+} from '@element-plus/icons-vue'
 import CategoryTree from '@/components/CategoryTree.vue'
 import CategoryManagementDrawer from '@/components/CategoryManagementDrawer.vue'
 import ProcessSearch from '@/components/ProcessSearch.vue'
 
-interface ProcessDefinition {
-  id: string
-  key: string
-  name: string
-  version: number
-  deploymentId: string
-}
-
 const router = useRouter()
-const processDefinitions = ref<ProcessDefinition[]>([])
+
+// 设计态和发布态模板列表
+const draftTemplates = ref<TemplateView[]>([])
+const publishedTemplates = ref<TemplateView[]>([])
 const categoryTree = ref<ProcessCategoryTree[]>([])
 const currentCategory = ref<ProcessCategoryTree | null>(null)
 const currentEditCategory = ref<ProcessCategoryTree | null>(null)
@@ -217,25 +259,29 @@ const currentContextId = ref('')
 // 搜索功能
 const searchQuery = ref('')
 
-// 高亮的流程ID（用于搜索定位）
-const highlightedProcessId = ref<string>()
+// 高亮的模板ID（用于搜索定位）
+const highlightedTemplateId = ref<string>()
 
-// 计算过滤后的流程定义
-const filteredProcessDefinitions = computed(() => {
-  let result = processDefinitions.value
+// 合并后的模板列表
+const allTemplates = computed(() => {
+  return [...draftTemplates.value, ...publishedTemplates.value]
+})
+
+// 计算过滤后的模板
+const filteredTemplates = computed(() => {
+  let result = allTemplates.value
 
   // 按分类筛选
   if (selectedCategoryId.value) {
-    // TODO: 实现按分类筛选流程的逻辑
-    // 这里需要扩展 getProcessDefinitions 接口支持 categoryId 参数
+    result = result.filter(t => t.categoryId === selectedCategoryId.value)
   }
 
   // 按搜索关键词筛选
   if (searchQuery.value) {
     const keyword = searchQuery.value.toLowerCase()
-    result = result.filter(def =>
-      def.name.toLowerCase().includes(keyword) ||
-      def.key.toLowerCase().includes(keyword)
+    result = result.filter(t =>
+      t.templateName.toLowerCase().includes(keyword) ||
+      t.templateKey.toLowerCase().includes(keyword)
     )
   }
 
@@ -243,8 +289,36 @@ const filteredProcessDefinitions = computed(() => {
 })
 
 // 获取行的类名（用于高亮）
-const getRowClassName = ({ row }: { row: ProcessDefinition }) => {
-  return highlightedProcessId.value === row.id ? 'highlight-row' : ''
+const getRowClassName = ({ row }: { row: TemplateView }) => {
+  return highlightedTemplateId.value === row.id ? 'highlight-row' : ''
+}
+
+// 获取状态类型
+const getStatusType = (status: TemplateStatus) => {
+  switch (status) {
+    case 'DRAFT':
+      return 'info'
+    case 'ACTIVE':
+      return 'success'
+    case 'INACTIVE':
+      return 'warning'
+    default:
+      return ''
+  }
+}
+
+// 获取状态文本
+const getStatusText = (status: TemplateStatus) => {
+  switch (status) {
+    case 'DRAFT':
+      return '草稿'
+    case 'ACTIVE':
+      return '已发布'
+    case 'INACTIVE':
+      return '已停用'
+    default:
+      return ''
+  }
 }
 
 onMounted(() => {
@@ -257,7 +331,7 @@ onActivated(() => {
 
 const loadData = () => {
   loadCategoryTree()
-  loadProcessDefinitions()
+  loadTemplates()
 }
 
 const loadCategoryTree = async () => {
@@ -274,26 +348,229 @@ const loadCategoryTree = async () => {
   }
 }
 
-const loadProcessDefinitions = async () => {
+// 加载设计态和发布态模板
+const loadTemplates = async () => {
   try {
-    const response = await getProcessDefinitions()
-    processDefinitions.value = response.data.data
+    // 并行加载设计态和发布态模板
+    const [draftsRes, publishedRes] = await Promise.all([
+      listDraftTemplates({
+        tenantId: currentTenantId.value,
+        appId: currentAppId.value,
+        contextId: currentContextId.value,
+        categoryId: selectedCategoryId.value
+      }),
+      listPublishedTemplates({
+        tenantId: currentTenantId.value,
+        appId: currentAppId.value,
+        contextId: currentContextId.value,
+        categoryId: selectedCategoryId.value
+      })
+    ])
+
+    // 转换为统一的 TemplateView 格式
+    draftTemplates.value = (draftsRes.data.data || []).map((t: any) => ({
+      id: t.id,
+      templateKey: t.templateKey,
+      templateName: t.templateName,
+      description: t.description,
+      categoryId: t.categoryId,
+      categoryName: t.categoryName,
+      status: 'DRAFT' as TemplateStatus,
+      version: t.version,
+      createdTime: t.createdTime,
+      updatedTime: t.updatedTime
+    }))
+
+    publishedTemplates.value = (publishedRes.data.data || []).map((t: any) => ({
+      id: t.id,
+      templateKey: t.templateKey,
+      templateName: t.templateName,
+      description: t.description,
+      categoryId: t.categoryId,
+      categoryName: t.categoryName,
+      status: t.status as TemplateStatus,
+      version: t.version,
+      instanceCount: t.instanceCount,
+      runningInstanceCount: t.runningInstanceCount,
+      createdTime: t.createdTime,
+      updatedTime: t.updatedTime
+    }))
   } catch (error) {
-    ElMessage.error('加载流程定义失败')
+    ElMessage.error('加载流程模板失败')
     console.error(error)
   }
 }
 
-const createNewProcess = () => {
-  router.push('/process/designer')
+// 初始BPMN XML
+const getInitialXML = () => {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_1" name="新建流程" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1" name="开始">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="Task_1" name="任务1">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="EndEvent_1" name="结束">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_1" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_1" targetRef="EndEvent_1" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="182" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="189" y="145" width="22" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_1_di" bpmnElement="Task_1">
+        <dc:Bounds x="280" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1">
+        <dc:Bounds x="442" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="449" y="145" width="22" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="218" y="120" />
+        <di:waypoint x="280" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="380" y="120" />
+        <di:waypoint x="442" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`
 }
 
-const handleEdit = (row: ProcessDefinition) => {
-  router.push(`/process/designer?id=${row.id}&key=${row.key}&name=${encodeURIComponent(row.name)}`)
+// 创建新流程（先创建设计态模板）
+const createNewProcess = async () => {
+  try {
+    const templateKey = `template_${Date.now()}`
+    const initialXML = getInitialXML()
+
+    // 先创建一个设计态模板
+    const response = await listDraftTemplates({
+      tenantId: currentTenantId.value
+    })
+
+    // 使用 createDraftTemplate API
+    const { createDraftTemplate } = await import('@/api/process')
+    const createResponse = await createDraftTemplate({
+      templateKey,
+      templateName: '新建流程模板',
+      bpmnXml: initialXML,
+      categoryId: selectedCategoryId.value || '',
+      tenantId: currentTenantId.value,
+      appId: currentAppId.value,
+      contextId: currentContextId.value
+    })
+
+    // 跳转到设计器，带上设计态模板ID
+    const draftId = createResponse.data.data.id
+    router.push(`/process/designer?draftId=${draftId}`)
+  } catch (error) {
+    ElMessage.error('创建模板失败')
+    console.error(error)
+  }
 }
 
-const handleStart = (row: ProcessDefinition) => {
-  startForm.value.processKey = row.key
+// 编辑/查看模板
+const handleEdit = (row: TemplateView) => {
+  if (row.status === 'DRAFT') {
+    router.push(`/process/designer?draftId=${row.id}`)
+  } else {
+    router.push(`/process/designer?publishedId=${row.id}&readonly=true`)
+  }
+}
+
+// 查看模板（只读模式）
+const handleView = (row: TemplateView) => {
+  router.push(`/process/designer?publishedId=${row.id}&readonly=true`)
+}
+
+// 发布模板
+const handlePublish = async (row: TemplateView) => {
+  try {
+    await ElMessageBox.confirm('确定要发布此模板吗？发布后将创建新的版本。', '确认发布', {
+      type: 'warning'
+    })
+
+    await publishTemplate(row.id)
+    ElMessage.success('发布成功')
+    loadTemplates()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('发布失败')
+      console.error(error)
+    }
+  }
+}
+
+// 停用模板
+const handleSuspend = async (row: TemplateView) => {
+  try {
+    await ElMessageBox.confirm('确定要停用此模板吗？', '确认停用', {
+      type: 'warning'
+    })
+
+    await suspendTemplate(row.id)
+    ElMessage.success('停用成功')
+    loadTemplates()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('停用失败')
+      console.error(error)
+    }
+  }
+}
+
+// 激活模板
+const handleActivate = async (row: TemplateView) => {
+  try {
+    await activateTemplate(row.id)
+    ElMessage.success('激活成功')
+    loadTemplates()
+  } catch (error) {
+    ElMessage.error('激活失败')
+    console.error(error)
+  }
+}
+
+// 删除模板
+const handleDelete = async (row: TemplateView) => {
+  try {
+    await ElMessageBox.confirm('确定要删除此模板吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    await deleteDraftTemplate(row.id)
+    ElMessage.success('删除成功')
+    loadTemplates()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+      console.error(error)
+    }
+  }
+}
+
+// 启动流程
+const handleStart = (row: TemplateView) => {
+  startForm.value.processKey = row.templateKey
   startForm.value.businessKey = ''
   startDialogVisible.value = true
 }
@@ -309,30 +586,12 @@ const confirmStart = async () => {
   }
 }
 
-const handleDelete = async (row: ProcessDefinition) => {
-  try {
-    await ElMessageBox.confirm('确定要删除此流程定义吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-
-    await deleteProcessDefinition(row.deploymentId)
-    ElMessage.success('删除成功')
-    loadProcessDefinitions()
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除失败')
-      console.error(error)
-    }
-  }
-}
-
 // 分类相关操作
 const handleCategoryClick = (data: ProcessCategoryTree) => {
   currentCategory.value = data
   selectedCategoryId.value = data.id
-  // TODO: 加载该分类下的流程
+  // 重新加载该分类下的模板
+  loadTemplates()
 }
 
 const showCategoryManagement = () => {
@@ -364,8 +623,8 @@ const handleCategorySaved = () => {
   loadCategoryTree()
 }
 
-// 处理搜索选择（定位到分类树节点并高亮流程）
-const handleSearchSelect = ({ process, pathIds }: { process: any, pathIds: string[] }) => {
+// 处理搜索选择（定位到分类树节点并高亮模板）
+const handleSearchSelect = ({ template, pathIds }: { template: any, pathIds: string[] }) => {
   // 1. 使用 pathIds 定位到分类树节点
   const treeRef = categoryTreeRef.value
   if (treeRef && pathIds && pathIds.length > 0) {
@@ -373,16 +632,19 @@ const handleSearchSelect = ({ process, pathIds }: { process: any, pathIds: strin
   }
 
   // 2. 设置当前分类
-  selectedCategoryId.value = process.categoryId
+  selectedCategoryId.value = template.categoryId
   const treeData = categoryTree.value || []
-  currentCategory.value = findCategoryInTree(treeData, process.categoryId)
+  currentCategory.value = findCategoryInTree(treeData, template.categoryId)
 
-  // 3. 高亮搜索到的流程
-  highlightedProcessId.value = process.id
+  // 3. 高亮搜索到的模板
+  highlightedTemplateId.value = template.id
 
-  // 4. 3秒后取消高亮
+  // 4. 重新加载该分类下的模板
+  loadTemplates()
+
+  // 5. 3秒后取消高亮
   setTimeout(() => {
-    highlightedProcessId.value = undefined
+    highlightedTemplateId.value = undefined
   }, 3000)
 }
 
@@ -507,24 +769,7 @@ const findCategoryInTree = (tree: ProcessCategoryTree[], categoryId: string): Pr
 .action-buttons {
   display: flex;
   gap: 8px;
-}
-
-.btn-edit {
-  background-color: #ecf5ff;
-  border-color: #b3d8ff;
-  color: #409eff;
-}
-
-.btn-start {
-  background-color: #f0f9eb;
-  border-color: #c2e7b0;
-  color: #67c23a;
-}
-
-.btn-delete {
-  background-color: #fef0f0;
-  border-color: #fbc4c4;
-  color: #f56c6c;
+  flex-wrap: wrap;
 }
 
 .empty-state {
@@ -548,24 +793,6 @@ const findCategoryInTree = (tree: ProcessCategoryTree[], categoryId: string): Pr
 .refresh-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-  transition: all 0.3s ease;
-}
-
-.btn-edit:hover {
-  background-color: #409eff;
-  color: white;
-  transition: all 0.3s ease;
-}
-
-.btn-start:hover {
-  background-color: #67c23a;
-  color: white;
-  transition: all 0.3s ease;
-}
-
-.btn-delete:hover {
-  background-color: #f56c6c;
-  color: white;
   transition: all 0.3s ease;
 }
 </style>
